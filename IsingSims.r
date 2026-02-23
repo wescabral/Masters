@@ -1,8 +1,8 @@
 # Parâmetros do Modelo
 grid_size <- 50       # Tamanho da imagem (50x50)
 n_colors <- 3         # Cores
-alpha <- 0.7        # Negativo para ser valorizar vizinhos iguais
-betas <- c(0, 0, 0.7)   # Penalização para cada cor
+alpha <- 0.3        # Negativo para ser valorizar vizinhos iguais
+betas <- c(0.5, 0, 0.7)   # Penalização para cada cor
 n_iterations <- 500000 # Sugestão do livro
 
 # Aleatorizando o grid
@@ -43,3 +43,60 @@ for(step in 1:n_iterations) {
 # Gráfico
 image(grid, col = topo.colors(n_colors), main = "Simulação MRF Multi-Cores")
 
+
+# Pseudoverossimilhança
+
+
+# Função de Log-PL que opera diretamente sobre a matriz 'grid'
+log_pl <- function(params) {
+  # Recuperando os parâmetros do vetor 'par' de tamanho 3
+  alpha_est <- params[1] 
+  
+  # Fixando o b0 em 0 para identificabilidade
+  b0 <- 0
+  b1 <- params[2]
+  b2 <- params[3]
+  betas_est <- c(b0, b1, b2)
+  
+  log_pl_total <- 0
+  
+  # Percorrendo cada pixel da imagem 50x50
+  for(i in 1:grid_size) {
+    for(j in 1:grid_size) {
+      
+      # Cor observada no pixel atual
+      k_obs <- grid[i, j]
+      
+      # Número de matches
+      n_viz_obs <- count_matches(grid, i, j, k_obs)
+      
+      # Numerador
+      num <- exp(-alpha_est * n_viz_obs - betas_est[k_obs + 1])
+      
+      # Denominador
+      den <- 0
+      for(m in 0:(n_colors-1)) {
+        n_viz_m <- count_matches(grid, i, j, m)
+        den <- den + exp(-alpha_est * n_viz_m - betas_est[m + 1])
+      }
+      
+      # Acumulando o logaritmo da probabilidade condicional
+      log_pl_total <- log_pl_total + log(num / den)
+    }
+  }
+  
+  # Retornamos o negativo para que o 'optim' minimize
+  return(-log_pl_total)
+}
+
+# Otimização
+fit <- optim(par = c(0.1, 0.1, 0.1), fn = log_pl)
+
+# Exibição dos resultados comparando com os parâmetros reais
+cat("--- Parâmetros Reais ---\n")
+cat("Alpha:", alpha, "| Betas:", betas, "\n\n")
+
+cat("--- Parâmetros Estimados (Besag via Grid) ---\n")
+cat("Alpha Estimado:", fit$par[1], "\n")
+cat("Beta_1 Estimado:", fit$par[2], "\n")
+cat("Beta_2 Estimado:", fit$par[3], "\n")
