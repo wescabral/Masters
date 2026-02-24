@@ -1,8 +1,8 @@
 # Parâmetros do Modelo
 grid_size <- 50       # Tamanho da imagem (50x50)
 n_colors <- 3         # Cores
-alpha <- 0.3        # Negativo para ser valorizar vizinhos iguais
-betas <- c(0.5, 0, 0.7)   # Penalização para cada cor
+alpha <- 0.6       # Negativo para ser valorizar vizinhos iguais
+betas <- c(0, 0, 0.7)   # Penalização para cada cor
 n_iterations <- 500000 # Sugestão do livro
 
 # Aleatorizando o grid
@@ -24,31 +24,28 @@ for(step in 1:n_iterations) {
   i <- sample(1:grid_size, 1)
   j <- sample(1:grid_size, 1)
   
-  old_color <- grid[i, j]
-  new_color <- sample((0:(n_colors-1))[- (old_color + 1)], 1)
+  energies = rep(0, n_colors)
   
-
-  # U = -alpha * matches - beta_k
-  energy_old <- -alpha * count_matches(grid, i, j, old_color) - betas[old_color + 1]
-  energy_new <- -alpha * count_matches(grid, i, j, new_color) - betas[new_color + 1]
+  for(color in 0:(n_colors-1)) {
+   # Calcula a energia de cada cor
+    energies[color + 1] <- -alpha * count_matches(grid, i, j, color) - betas[color + 1]
+  }
   
-  delta_u <- energy_new - energy_old
+  # Transforma as energias em probabilidade
+    prob_colors <- exp(energies)/sum(exp(energies))
   
   # Critério de troca
-  if(delta_u > 0) {
-    grid[i, j] <- new_color
-  }
+    grid[i, j] <- sample(0:(n_colors-1), 1, prob = prob_colors)
+    
 }
 
 # Gráfico
 image(grid, col = topo.colors(n_colors), main = "Simulação MRF Multi-Cores")
 
 
-# Pseudoverossimilhança
-
-
 # Função de Log-PL que opera diretamente sobre a matriz 'grid'
 log_pl <- function(params) {
+  
   # Recuperando os parâmetros do vetor 'par' de tamanho 3
   alpha_est <- params[1] 
   
@@ -65,13 +62,13 @@ log_pl <- function(params) {
     for(j in 1:grid_size) {
       
       # Cor observada no pixel atual
-      k_obs <- grid[i, j]
+      color_obs <- grid[i, j]
       
       # Número de matches
-      n_viz_obs <- count_matches(grid, i, j, k_obs)
+      n_viz_obs <- count_matches(grid, i, j, color_obs)
       
       # Numerador
-      num <- exp(-alpha_est * n_viz_obs - betas_est[k_obs + 1])
+      num <- exp(-alpha_est * n_viz_obs - betas_est[color_obs + 1])
       
       # Denominador
       den <- 0
@@ -85,18 +82,19 @@ log_pl <- function(params) {
     }
   }
   
-  # Retornamos o negativo para que o 'optim' minimize
+  # Retorna negativo para que o 'optim' minimize
   return(-log_pl_total)
 }
 
 # Otimização
-fit <- optim(par = c(0.1, 0.1, 0.1), fn = log_pl)
+fit <- optim(par = c(0.6, 0, 0.7), fn = log_pl)
 
-# Exibição dos resultados comparando com os parâmetros reais
-cat("--- Parâmetros Reais ---\n")
-cat("Alpha:", alpha, "| Betas:", betas, "\n\n")
+# Resultados
 
-cat("--- Parâmetros Estimados (Besag via Grid) ---\n")
-cat("Alpha Estimado:", fit$par[1], "\n")
-cat("Beta_1 Estimado:", fit$par[2], "\n")
-cat("Beta_2 Estimado:", fit$par[3], "\n")
+results <- data.frame(
+  Parâmetro = c("Alpha", "Beta Ref", "Beta 1", "Beta 2"),
+  Real = c(alpha, betas),
+  Estimado = c(fit$par[1], "-", fit$par[2], fit$par[3])
+)
+
+results
