@@ -118,14 +118,14 @@ t_obs = t_omega(grid)
 psi_alpha <- fit_pl$par[1]
 psi_betas <- c(0, fit_pl$par[2], fit_pl$par[3]) # b0 fixo em 0 como referência
 
-n_samples <- 5000  # Quantidade de amostras para aproximar a verossimilhança
+n_samples <- 500  # Quantidade de amostras para aproximar a verossimilhança
 t_omega_sims <- matrix(0, nrow = n_samples, ncol = 1 + n_colors)
 temp_grid <- grid
 
 for(s in 1:n_samples) {
 
   # Realiza algumas iterações de Gibbs para cada amostra
-  for(rep in 1:5000) {
+  for(rep in 1:50000) {
 
     i <- sample(1:grid_size, 1) 
     j <- sample(1:grid_size, 1)
