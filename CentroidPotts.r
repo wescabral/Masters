@@ -1,5 +1,5 @@
+library(tictoc)
 tic()
-
 # Parâmetros do Modelo
 grid_size <- 50      # Tamanho da imagem (50x50)
 n_colors <- 3         # Cores
