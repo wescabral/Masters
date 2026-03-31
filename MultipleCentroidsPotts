@@ -1,4 +1,3 @@
-
 # Parâmetros do Modelo
 grid_size <- 50      # Tamanho da imagem (50x50)
 n_colors <- 3         # Cores
@@ -7,9 +6,9 @@ centroides <- matrix(c(15, 15,   # Coordenadas dos centroides
                      ncol = 2, byrow = TRUE)
 n_centroides <- nrow(centroides) 
 alpha <- -1       # Negativo para ser valorizar vizinhos iguais
-betas <- c(0, -1.2, -1.2)   # Penalização para cada cor
-gammas <- matrix(c(0, 3, 2, # Dummy da direção da penalização por centroide: negativo penaliza longe
-                   0, 1.5, 2),
+betas <- c(0, -120, 0)   # Penalização para cada cor
+gammas <- matrix(c(0, 550, 0, # Dummy da direção da penalização por centroide: negativo penaliza longe
+                   0, 350, 0),
                  nrow = n_centroides, ncol = n_colors, byrow = TRUE)
 max_dist <- sqrt(2 * (grid_size/2)^2)
 n_iterations <- 500000 # Sugestão do livro
@@ -54,17 +53,113 @@ for(step in 1:n_iterations) {
   
 }
 
-# Gráfico
-image(grid, col = topo.colors(n_colors), main = "Simulação MRF Multi-Cores")
-legend("topright", 
-       legend = paste("Cor", 0:(n_colors-1)), 
-       fill = topo.colors(n_colors),
-       cex = 0.6,           
-       pt.cex = 0.8, 
-       seg.len = 0,         
-       x.intersp = 0.2,     
-       y.intersp = 0.4,     
-       text.width = 0.05,   
-       bg = rgb(1,1,1,0.7), 
-       box.lwd = 0.6, 
-       inset = 0.01)
+
+### PSEUDOVEROSSIMILHANÇA
+
+# Matriz de distâncias normalizadas
+dist_min_matrix <- matrix(0, grid_size, grid_size)
+centroid_idx_matrix <- matrix(0, grid_size, grid_size)
+
+for(i in 1:grid_size) {
+  for(j in 1:grid_size) {
+    dists <- (sqrt((i - centroides[,1])^2 + (j - centroides[,2])^2) + 1) / max_dist
+    dist_min_matrix[i,j] <- min(dists)
+    centroid_idx_matrix[i,j] <- which.min(dists)
+  }
+}
+
+# Função de Log-PL que opera diretamente sobre a matriz 'grid'
+log_pl <- function(params) {
+  
+  # Recuperando os parâmetros do vetor 'par' de tamanho 3
+  alpha_est <- params[1] 
+  
+  # Fixando o b0 em 0 para identificabilidade
+  betas_est <- c(0, params[2], params[3])
+  gammas_est <- matrix(c(0, params[4], params[5],
+                         0, params[6], params[7]), 
+                       nrow = n_centroides, ncol = n_colors, byrow = TRUE)
+  
+  log_pl_total <- 0
+  
+  # Percorrendo cada pixel da imagem 50x50
+  for(i in 1:grid_size) {
+    for(j in 1:grid_size) {
+      
+      # Cor observada no pixel atual
+      color_obs <- grid[i, j]
+      
+      # Número de matches
+      n_viz_obs <- count_matches_by_color(grid, i, j, color_obs)
+      
+      # Distância normalizada
+      dist_norm <- dist_min_matrix[i,j]
+      centroide_idx = centroid_idx_matrix[i,j]
+      
+      # Numerador
+      num <- -alpha_est * n_viz_obs - betas_est[color_obs + 1] - (gammas_est[centroide_idx, color_obs + 1] * dist_norm)
+      
+      # Denominador
+      den <- sapply(0:(n_colors-1), function(m) {
+        n_viz_m <- count_matches_by_color(grid, i, j, m)
+        return(-alpha_est * n_viz_m - betas_est[m + 1] - (gammas_est[centroide_idx, color_obs + 1] * dist_norm))
+      })
+      
+      # Acumulando o logaritmo da probabilidade condicional
+      log_pl_local <- max(den) + log(sum(exp(den - max(den))))
+      log_pl_total <- log_pl_total + num - log_pl_local
+    }
+  }
+  
+  # Retorna negativo para que o 'optim' minimize
+  return(-log_pl_total)
+}
+
+# Otimização
+fit_pl <- optim(par = c(0, 0, 0, 0, 0, 0, 0), fn = log_pl)
+
+
+### COMPARAÇÃO DE RESULTADOS 
+
+# Recuperando os parâmetros estimados pela PL
+alpha_est_pl <- fit_pl$par[1]
+betas_est_pl <- c(0, fit_pl$par[2], fit_pl$par[3])
+gammas_est_pl <- matrix(c(0, fit_pl$par[4], fit_pl$par[5], 
+                          0, fit_pl$par[6], fit_pl$par[7]), 
+                        nrow = n_centroides, ncol = n_colors, byrow = TRUE)
+
+results <- data.frame(
+  Parâmetro = c("Alpha", "Beta Ref", "Beta 1", "Beta 2", "Gamma Ref C1", "Gamma 1 C1", "Gamma 2 C1", "Gamma Ref C2", "Gamma 1 C2", "Gamma 2 C2"),
+  Real = c(alpha, betas, gammas[1,], gammas[2,]),
+  PL = c(alpha_est_pl, betas_est_pl, gammas_est_pl[1,], gammas_est_pl[2,])
+)
+
+print(results)
+
+# Gerando uma nova imagem baseada nos parâmetros da Pseudoverossimilhança
+grid_pl_sim <- matrix(sample(0:(n_colors-1), grid_size^2, replace = TRUE), nrow = grid_size)
+
+for(step in 1:n_iterations) {
+  i <- sample(1:grid_size, 1)
+  j <- sample(1:grid_size, 1)
+  
+  energies_pl <- rep(0, n_colors)
+  dists_norm <- (sqrt((i - centroides[,1])^2 + (j - centroides[,2])^2) + 1) / max_dist
+  c_idx <- which.min(dists_norm)
+  d_min <- dists_norm[c_idx]
+  
+  for(color in 0:(n_colors-1)) {
+    # Aplica a energia com os parâmetros que o optim encontrou
+    energies_pl[color + 1] <- - alpha_est_pl * count_matches_by_color(grid_pl_sim, i, j, color) - 
+      betas_est_pl[color + 1] - 
+      (gammas_est_pl[c_idx, color + 1] * d_min)
+  }
+  
+  prob_colors_pl <- exp(energies_pl) / sum(exp(energies_pl))
+  grid_pl_sim[i, j] <- sample(0:(n_colors-1), 1, prob = prob_colors_pl)
+}
+
+# Imagem Original
+image(grid, col = topo.colors(n_colors), main = "Imagem Original (Real)")
+# Imagem Reconstruída
+image(grid_pl_sim, col = topo.colors(n_colors), main = "Simulação PL (Estimada)")
