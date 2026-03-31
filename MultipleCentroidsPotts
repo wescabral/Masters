@@ -1,14 +1,14 @@
 # Parâmetros do Modelo
 grid_size <- 50      # Tamanho da imagem (50x50)
-n_colors <- 3         # Cores
+n_colors <- 2         # Cores
 centroides <- matrix(c(15, 15,   # Coordenadas dos centroides
                        25, 25), 
                      ncol = 2, byrow = TRUE)
 n_centroides <- nrow(centroides) 
 alpha <- -1       # Negativo para ser valorizar vizinhos iguais
-betas <- c(0, -120, 0)   # Penalização para cada cor
-gammas <- matrix(c(0, 550, 0, # Dummy da direção da penalização por centroide: negativo penaliza longe
-                   0, 350, 0),
+betas <- c(0, -1.2)   # Penalização para cada cor
+gammas <- matrix(c(0, 5.50, # Dummy da direção da penalização por centroide: negativo penaliza longe
+                   0, 3.50),
                  nrow = n_centroides, ncol = n_colors, byrow = TRUE)
 max_dist <- sqrt(2 * (grid_size/2)^2)
 n_iterations <- 500000 # Sugestão do livro
@@ -75,9 +75,9 @@ log_pl <- function(params) {
   alpha_est <- params[1] 
   
   # Fixando o b0 em 0 para identificabilidade
-  betas_est <- c(0, params[2], params[3])
-  gammas_est <- matrix(c(0, params[4], params[5],
-                         0, params[6], params[7]), 
+  betas_est <- c(0, params[2])
+  gammas_est <- matrix(c(0, params[3],
+                         0, params[4]), 
                        nrow = n_centroides, ncol = n_colors, byrow = TRUE)
   
   log_pl_total <- 0
@@ -116,20 +116,20 @@ log_pl <- function(params) {
 }
 
 # Otimização
-fit_pl <- optim(par = c(0, 0, 0, 0, 0, 0, 0), fn = log_pl)
+fit_pl <- optim(par = c(0, 0, 0, 0), fn = log_pl)
 
 
 ### COMPARAÇÃO DE RESULTADOS 
 
 # Recuperando os parâmetros estimados pela PL
 alpha_est_pl <- fit_pl$par[1]
-betas_est_pl <- c(0, fit_pl$par[2], fit_pl$par[3])
-gammas_est_pl <- matrix(c(0, fit_pl$par[4], fit_pl$par[5], 
-                          0, fit_pl$par[6], fit_pl$par[7]), 
+betas_est_pl <- c(0, fit_pl$par[2])
+gammas_est_pl <- matrix(c(0, fit_pl$par[3], 
+                          0, fit_pl$par[4]), 
                         nrow = n_centroides, ncol = n_colors, byrow = TRUE)
 
 results <- data.frame(
-  Parâmetro = c("Alpha", "Beta Ref", "Beta 1", "Beta 2", "Gamma Ref C1", "Gamma 1 C1", "Gamma 2 C1", "Gamma Ref C2", "Gamma 1 C2", "Gamma 2 C2"),
+  Parâmetro = c("Alpha", "Beta Ref", "Beta 1", "Gamma Ref C1", "Gamma 1 C1", "Gamma Ref C2", "Gamma 1 C2"),
   Real = c(alpha, betas, gammas[1,], gammas[2,]),
   PL = c(alpha_est_pl, betas_est_pl, gammas_est_pl[1,], gammas_est_pl[2,])
 )
