@@ -4,8 +4,8 @@ tic()
 # Parâmetros do Modelo
 grid_size <- 50       # Tamanho da imagem (50x50)
 n_colors <- 3         # Cores
-alpha <- -0.6       # Negativo para ser valorizar vizinhos iguais
-betas <- c(0, 0, 0.2)   # Penalização para cada cor
+alpha <- -1.3       # Negativo para ser valorizar vizinhos iguais
+betas <- c(0, 0.7, 0.2)   # Penalização para cada cor
 n_iterations <- 500000 # Sugestão do livro
 
 
@@ -98,7 +98,7 @@ log_pl <- function(params) {
 fit_pl <- optim(par = c(0, 0, 0), fn = log_pl)
 
 
-### VEROSSIMILHANÇA VIA MONTE CARLO
+### Metropolis-Hastings
 
 # Função para calcular as estatísticas suficientes t(omega)
 t_omega <- function(grid) {
@@ -113,60 +113,62 @@ t_omega <- function(grid) {
 }
 
 t_obs = t_omega(grid)
-
-# Parâmetros Psi obtidos através da pseudoverossimilhança
 psi_alpha <- fit_pl$par[1]
-psi_betas <- c(0, fit_pl$par[2], fit_pl$par[3]) # b0 fixo em 0 como referência
-
-n_samples <- 500  # Quantidade de amostras para aproximar a verossimilhança
-t_omega_sims <- matrix(0, nrow = n_samples, ncol = 1 + n_colors)
+psi_betas <- c(0, fit_pl$par[2], fit_pl$par[3])
+n_samples <- 500
+t_sims <- matrix(0, nrow = n_samples, ncol = length(t_obs))
 temp_grid <- grid
 
+# Simulações de Monte Carlo
 for(s in 1:n_samples) {
-
-  # Realiza algumas iterações de Gibbs para cada amostra
-  for(rep in 1:50000) {
-
-    i <- sample(1:grid_size, 1) 
-    j <- sample(1:grid_size, 1)
-
+  for(rep in 1:50000) { # Gibbs para convergir sob psi
+    i <- sample(1:grid_size, 1); j <- sample(1:grid_size, 1)
     energies_sim <- sapply(0:(n_colors-1), function(c) {
       -psi_alpha * count_matches_by_color(temp_grid, i, j, c) - psi_betas[c + 1]
     })
-
-    probs <- exp(energies_sim) / sum(exp(energies_sim))
-
-    temp_grid[i,j] <- sample(0:(n_colors-1), 1, prob = probs)
+    temp_grid[i,j] <- sample(0:(n_colors-1), 1, prob = exp(energies_sim)/sum(exp(energies_sim)))
   }
-
-  t_omega_sims[s, ] <- t_omega(temp_grid)
+  t_sims[s, ] <- t_omega(temp_grid)
 }
 
-# Função de log-verossimilhança via Monte Carlo
-log_mcml <- function(params) {
-  alpha_est <- params[1]
-  betas_est <- c(0, params[2], params[3])
+# Log-verossimilhança via Monte Carlo
+log_lik_mcml <- function(theta) {
+  alpha_est <- theta[1]
+  betas_est <- c(0, theta[2], theta[3])
   
-  # Energia da imagem observada sob o novo parâmetro theta
+  # Numerador
   u_theta_obs <- -alpha_est * t_obs[1] - sum(betas_est * t_obs[2:4])
   
-  # Diferença de energia para as amostras simuladas
+  # Denominador
   diff_alpha <- alpha_est - psi_alpha
   diff_betas <- betas_est - psi_betas
+  u_diffs <- -diff_alpha * t_sims[, 1] - (t_sims[, 2:4] %*% diff_betas)
   
-  # Diferença u_diff para cada amostra simulada
-  u_diffs <- -diff_alpha * t_omega_sims[, 1] - (t_omega_sims[, 2:4] %*% diff_betas)
+  # Log da razão
+  max_diff <- max(u_diffs)
+  log_ratio_Z <- max_diff + log(mean(exp(u_diffs - max_diff)))
   
-  # Log-verossimilhança
-  log_ratio_Z <- log(mean(exp(u_diffs)))
-  l_theta <- u_theta_obs - log_ratio_Z
-  
-  return(-l_theta) # Negativo para minimizar
+  return(u_theta_obs - log_ratio_Z) # Log-verossimilhança aproximada
 }
 
-# Otimização final MCML
-fit_mcml <- optim(par = fit_pl$par, fn = log_mcml)
+### 4. ALGORITMO METROPOLIS-HASTINGS
+n_steps <- 10000
+param_samples <- matrix(0, nrow = n_steps, ncol = 3)
+current_params <- fit_pl$par
+current_log_lik <- log_lik_mcml(current_params)
 
+for(s in 1:n_steps) {
+  # Random Walk
+  proposed_params <- current_params + rnorm(3, 0, 0.05)
+  proposed_log_lik <- log_lik_mcml(proposed_params)
+  
+  # Razão de aceitação
+  if(log(runif(1)) < (proposed_log_lik - current_log_lik)) {
+    current_params <- proposed_params
+    current_log_lik <- proposed_log_lik
+  }
+  param_samples[s, ] <- current_params
+}
 
 ### RESULTADOS
 
@@ -174,7 +176,7 @@ results <- data.frame(
   Parâmetro = c("Alpha", "Beta Ref", "Beta 1", "Beta 2"),
   Real = c(alpha, betas),
   PL = c(fit_pl$par[1], "-", fit_pl$par[2], fit_pl$par[3]),
-  MCML = c(fit_mcml$par[1], "-", fit_mcml$par[2], fit_mcml$par[3])
+  MH = c(mean(param_samples[,1]), "-", mean(param_samples[,2]), mean(param_samples[,3]))
 )
 
 print(results)
