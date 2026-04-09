@@ -4,8 +4,8 @@ tic()
 # Parâmetros do Modelo
 grid_size <- 50       # Tamanho da imagem (50x50)
 n_colors <- 3         # Cores
-alpha <- -1.3       # Negativo para ser valorizar vizinhos iguais
-betas <- c(0, 0.7, 0.2)   # Penalização para cada cor
+alpha <- -0.8       # Negativo para ser valorizar vizinhos iguais
+betas <- c(0, 0.01, 0.05)   # Penalização para cada cor
 n_iterations <- 500000 # Sugestão do livro
 
 
@@ -33,16 +33,16 @@ for(step in 1:n_iterations) {
   energies = rep(0, n_colors)
   
   for(color in 0:(n_colors-1)) {
-   # Calcula a energia de cada cor
+    # Calcula a energia de cada cor
     energies[color + 1] <- -alpha * count_matches_by_color(grid, i, j, color) - betas[color + 1]
   }
   
   # Transforma as energias em probabilidade
-    prob_colors <- exp(energies)/sum(exp(energies))
+  prob_colors <- exp(energies)/sum(exp(energies))
   
   # Critério de troca
-    grid[i, j] <- sample(0:(n_colors-1), 1, prob = prob_colors)
-    
+  grid[i, j] <- sample(0:(n_colors-1), 1, prob = prob_colors)
+  
 }
 
 # Gráfico
@@ -76,17 +76,17 @@ log_pl <- function(params) {
       n_viz_obs <- count_matches_by_color(grid, i, j, color_obs)
       
       # Numerador
-      num <- exp(-alpha_est * n_viz_obs - betas_est[color_obs + 1])
+      num <- -alpha_est * n_viz_obs - betas_est[color_obs + 1]
       
       # Denominador
-      den <- 0
-      for(m in 0:(n_colors-1)) {
+      den <- sapply(0:(n_colors-1), function(m) {
         n_viz_m <- count_matches_by_color(grid, i, j, m)
-        den <- den + exp(-alpha_est * n_viz_m - betas_est[m + 1])
-      }
+        return(-alpha_est * n_viz_m - betas_est[m + 1])
+      })
       
       # Acumulando o logaritmo da probabilidade condicional
-      log_pl_total <- log_pl_total + log(num / den)
+      max_den = max(den)
+      log_pl_total <- log_pl_total + (num - max(den) - log(sum(exp(den - max(den)))))
     }
   }
   
@@ -102,68 +102,34 @@ fit_pl <- optim(par = c(0, 0, 0), fn = log_pl)
 
 # Função para calcular as estatísticas suficientes t(omega)
 t_omega <- function(grid) {
-
+  
   # Contagem de matches independente da cor
   matches_hor <- sum(grid[, -ncol(grid)] == grid[, -1])
   matches_ver <- sum(grid[-nrow(grid), ] == grid[-1, ])
-
+  
   # Contagem de cada cor
   color_counts <- as.vector(table(factor(grid, levels = 0:(n_colors-1))))
   return(c(matches = matches_hor + matches_ver, counts = color_counts))
 }
 
-t_obs = t_omega(grid)
-psi_alpha <- fit_pl$par[1]
-psi_betas <- c(0, fit_pl$par[2], fit_pl$par[3])
-n_samples <- 500
-t_sims <- matrix(0, nrow = n_samples, ncol = length(t_obs))
-temp_grid <- grid
-
-# Simulações de Monte Carlo
-for(s in 1:n_samples) {
-  for(rep in 1:50000) { # Gibbs para convergir sob psi
-    i <- sample(1:grid_size, 1); j <- sample(1:grid_size, 1)
-    energies_sim <- sapply(0:(n_colors-1), function(c) {
-      -psi_alpha * count_matches_by_color(temp_grid, i, j, c) - psi_betas[c + 1]
-    })
-    temp_grid[i,j] <- sample(0:(n_colors-1), 1, prob = exp(energies_sim)/sum(exp(energies_sim)))
-  }
-  t_sims[s, ] <- t_omega(temp_grid)
+# Distribuição log priori
+log_priori <- function(params) {
+  return(sum(dnorm(params, mean = 0, sd = 10, log = TRUE)))
 }
 
-# Log-verossimilhança via Monte Carlo
-log_lik_mcml <- function(theta) {
-  alpha_est <- theta[1]
-  betas_est <- c(0, theta[2], theta[3])
-  
-  # Numerador
-  u_theta_obs <- -alpha_est * t_obs[1] - sum(betas_est * t_obs[2:4])
-  
-  # Denominador
-  diff_alpha <- alpha_est - psi_alpha
-  diff_betas <- betas_est - psi_betas
-  u_diffs <- -diff_alpha * t_sims[, 1] - (t_sims[, 2:4] %*% diff_betas)
-  
-  # Log da razão
-  max_diff <- max(u_diffs)
-  log_ratio_Z <- max_diff + log(mean(exp(u_diffs - max_diff)))
-  
-  return(u_theta_obs - log_ratio_Z) # Log-verossimilhança aproximada
-}
-
-### 4. ALGORITMO METROPOLIS-HASTINGS
+# Algoritmo
 n_steps <- 10000
 param_samples <- matrix(0, nrow = n_steps, ncol = 3)
 current_params <- fit_pl$par
-current_log_lik <- log_lik_mcml(current_params)
+current_log_lik <- log_pl(current_params) + log_priori(current_params)
 
 for(s in 1:n_steps) {
   # Random Walk
-  proposed_params <- current_params + rnorm(3, 0, 0.05)
-  proposed_log_lik <- log_lik_mcml(proposed_params)
+  proposed_params <- current_params + rnorm(3, 0, 1)
+  proposed_log_lik <- log_pl(proposed_params) + log_priori(proposed_params)
   
   # Razão de aceitação
-  if(log(runif(1)) < (proposed_log_lik - current_log_lik)) {
+  if(log(runif(1)) < (current_log_lik - proposed_log_lik)) {
     current_params <- proposed_params
     current_log_lik <- proposed_log_lik
   }
