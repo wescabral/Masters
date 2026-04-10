@@ -52,17 +52,17 @@ for(step in 1:n_iterations) {
 # Gráfico
 image(grid, col = topo.colors(n_colors), main = "Simulação MRF Multi-Cores")
 legend("topright", 
-       legend = paste("Cor", 0:(n_colors-1)), 
-       fill = topo.colors(n_colors),
-       cex = 0.6,           
-       pt.cex = 0.8, 
-       seg.len = 0,         
-       x.intersp = 0.2,     
-       y.intersp = 0.4,     
-       text.width = 0.05,   
-       bg = rgb(1,1,1,0.7), 
-       box.lwd = 0.6, 
-       inset = 0.01)
+      legend = paste("Cor", 0:(n_colors-1)), 
+      fill = topo.colors(n_colors),
+      cex = 0.6,           
+      pt.cex = 0.8, 
+      seg.len = 0,         
+      x.intersp = 0.2,     
+      y.intersp = 0.4,     
+      text.width = 0.05,   
+      bg = rgb(1,1,1,0.7), 
+      box.lwd = 0.6, 
+      inset = 0.01)
 
 
 
@@ -109,14 +109,14 @@ log_pl <- function(params) {
       num <- -alpha_est * n_viz_obs - betas_est[color_obs + 1] - gammas_est[color_obs + 1] * dist_norm
       
       # Denominador
-      den <- 0
-      for(m in 0:(n_colors-1)) {
+      den <- sapply(0:(n_colors-1), function(m) {
         n_viz_m <- count_matches_by_color(grid, i, j, m)
-        den <- den + exp(-alpha_est * n_viz_m - betas_est[m + 1] - gammas_est[m + 1] * dist_norm)
-      }
+        return(-alpha_est * n_viz_m - betas_est[m + 1] - gammas_est[m + 1] * dist_norm)
+      })
       
       # Acumulando o logaritmo da probabilidade condicional
-      log_pl_total <- log_pl_total + num - log(den)
+      max_den = max(den)
+      log_pl_total <- log_pl_total + (num - max(den) - log(sum(exp(den - max(den)))))
     }
   }
   
@@ -128,8 +128,7 @@ log_pl <- function(params) {
 fit_pl <- optim(par = c(0, 0, 0), fn = log_pl)
 
 
-
-### VEROSSIMILHANÇA VIA MONTE CARLO
+### Metropolis-Hastings
 
 # Função para calcular as estatísticas suficientes t(omega)
 t_omega <- function(grid) {
@@ -140,85 +139,42 @@ t_omega <- function(grid) {
   
   # Contagem de cada cor
   color_counts <- as.vector(table(factor(grid, levels = 0:(n_colors-1))))
-  
-  # Contagem de distância por cor
-  color_dists <- c(sum(dist_matrix[grid == 0]), sum(dist_matrix[grid == 1]))
-  
-  return(c(matches = matches_hor + matches_ver, counts = color_counts, dists = color_dists))
+  return(c(matches = matches_hor + matches_ver, counts = color_counts))
 }
 
-t_obs = t_omega(grid)
+# Distribuição log priori
+log_priori <- function(params) {
+  return(sum(dnorm(params, mean = 0, sd = 10, log = TRUE)))
+}
 
-# Parâmetros Psi obtidos através da pseudoverossimilhança
-psi_alpha <- fit_pl$par[1]
-psi_betas <- c(0, fit_pl$par[2]) # b0 fixo em 0 como referência
-psi_gammas <- c(0, fit_pl$par[3])
+# Algoritmo
+n_steps <- 10000
+param_samples <- matrix(0, nrow = n_steps, ncol = 3)
+current_params <- fit_pl$par
+current_log_lik <- -log_pl(current_params) + log_priori(current_params)
 
-n_samples <- 500  # Quantidade de amostras para aproximar a verossimilhança
-t_omega_sims <- matrix(0, nrow = n_samples, ncol = 1 + n_colors*2)
-temp_grid <- grid
-
-for(s in 1:n_samples) {
+for(s in 1:n_steps) {
+  # Random Walk
+  proposed_params <- current_params + rnorm(3, 0, 1)
+  proposed_log_lik <- -log_pl(proposed_params) + log_priori(proposed_params)
   
-  # Realiza algumas iterações de Gibbs para cada amostra
-  for(rep in 1:50000) {
-    
-    i <- sample(1:grid_size, 1) 
-    j <- sample(1:grid_size, 1)
-    
-    # Distância normalizada
-    dist_norm <- dist_matrix[i,j]
-    
-    energies_sim <- sapply(0:(n_colors-1), function(c) {
-      -psi_alpha * count_matches_by_color(temp_grid, i, j, c) - psi_betas[c + 1] - psi_gammas[c + 1] * dist_norm
-    })
-    
-    probs <- exp(energies_sim) / sum(exp(energies_sim))
-    
-    temp_grid[i,j] <- sample(0:(n_colors-1), 1, prob = probs)
+  # Razão de aceitação
+  if(log(runif(1)) < (proposed_log_lik - current_log_lik)) {
+    current_params <- proposed_params
+    current_log_lik <- proposed_log_lik
   }
-  
-  t_omega_sims[s, ] <- t_omega(temp_grid)
+  param_samples[s, ] <- current_params
 }
-
-# Função de log-verossimilhança via Monte Carlo
-log_mcml <- function(params) {
-  alpha_est <- params[1]
-  betas_est <- c(0, params[2])
-  gammas_est <- c(0, params[3])
-  
-  # Energia da imagem observada sob o novo parâmetro theta
-  u_theta_obs <- -alpha_est * t_obs[1] - sum(betas_est * t_obs[2:3]) - sum(gammas_est * t_obs[4:5])
-  
-  # Diferença de energia para as amostras simuladas
-  diff_alpha <- alpha_est - psi_alpha
-  diff_betas <- betas_est - psi_betas
-  diff_gammas <- gammas_est - psi_gammas
-  
-  # Diferença u_diff para cada amostra simulada
-  u_diffs <- -diff_alpha * t_omega_sims[, 1] - (t_omega_sims[, 2:3] %*% diff_betas) - (t_omega_sims[, 4:5] %*% diff_gammas)
-  max_diff <- max(u_diffs)
-  
-  # Log-verossimilhança
-  log_ratio_Z <- max_diff + log(mean(exp(u_diffs - max_diff)))
-  l_theta <- u_theta_obs - log_ratio_Z
-  
-  return(-l_theta) # Negativo para minimizar
-}
-
-# Otimização final MCML
-fit_mcml <- optim(par = fit_pl$par, fn = log_mcml)
-
-
 
 ### RESULTADOS
 
 results <- data.frame(
-  Parâmetro = c("Alpha", "Beta Ref", "Beta 1", "Gamma Ref", "Gamma 1"),
-  Real = c(alpha, betas, gammas),
-  PL = c(fit_pl$par[1], "-", fit_pl$par[2], "-", fit_pl$par[3]),
-  MCML = c(fit_mcml$par[1], "-", fit_mcml$par[2], "-", fit_mcml$par[3])
+Parâmetro = c("Alpha", "Beta Ref", "Beta 1", "Gamma Ref", "Gamma 1"),
+Real = c(alpha, betas, gammas),
+PL = c(fit_pl$par[1], "-", fit_pl$par[2], "-", fit_pl$par[3]),
+MH = c(mean(param_samples[,1]), "-", mean(param_samples[,2]), "-", mean(param_samples[,3]))
 )
+
 print(results)
 
 toc()

@@ -121,15 +121,15 @@ log_priori <- function(params) {
 n_steps <- 10000
 param_samples <- matrix(0, nrow = n_steps, ncol = 3)
 current_params <- fit_pl$par
-current_log_lik <- log_pl(current_params) + log_priori(current_params)
+current_log_lik <- -log_pl(current_params) + log_priori(current_params)
 
 for(s in 1:n_steps) {
   # Random Walk
   proposed_params <- current_params + rnorm(3, 0, 1)
-  proposed_log_lik <- log_pl(proposed_params) + log_priori(proposed_params)
+  proposed_log_lik <- -log_pl(proposed_params) + log_priori(proposed_params)
   
   # Razão de aceitação
-  if(log(runif(1)) < (current_log_lik - proposed_log_lik)) {
+  if(log(runif(1)) < (proposed_log_lik - current_log_lik)) {
     current_params <- proposed_params
     current_log_lik <- proposed_log_lik
   }
