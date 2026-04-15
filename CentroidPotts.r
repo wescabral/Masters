@@ -3,10 +3,10 @@ tic()
 
 # Parâmetros do Modelo
 grid_size <- 50      # Tamanho da imagem (50x50)
-n_colors <- 2         # Cores
+n_colors <- 3         # Cores
 alpha <- -1.2       # Negativo para ser valorizar vizinhos iguais
-betas <- c(0, 1.2)   # Penalização para cada cor
-gammas <- c(0, -3) # Dummy da direção da penalização por centroide: negativo penaliza longe
+betas <- c(0, 0, -1.2)   # Penalização para cada cor
+gammas <- c(0, 0, 3) # Dummy da direção da penalização por centroide: negativo penaliza longe
 centroide <- c(25, 25) # Coordenada do centroide
 max_dist <- sqrt(2 * (grid_size/2)^2)
 n_iterations <- 500000 # Sugestão do livro
@@ -52,17 +52,17 @@ for(step in 1:n_iterations) {
 # Gráfico
 image(grid, col = topo.colors(n_colors), main = "Simulação MRF Multi-Cores")
 legend("topright", 
-      legend = paste("Cor", 0:(n_colors-1)), 
-      fill = topo.colors(n_colors),
-      cex = 0.6,           
-      pt.cex = 0.8, 
-      seg.len = 0,         
-      x.intersp = 0.2,     
-      y.intersp = 0.4,     
-      text.width = 0.05,   
-      bg = rgb(1,1,1,0.7), 
-      box.lwd = 0.6, 
-      inset = 0.01)
+       legend = paste("Cor", 0:(n_colors-1)), 
+       fill = topo.colors(n_colors),
+       cex = 0.6,           
+       pt.cex = 0.8, 
+       seg.len = 0,         
+       x.intersp = 0.2,     
+       y.intersp = 0.4,     
+       text.width = 0.05,   
+       bg = rgb(1,1,1,0.7), 
+       box.lwd = 0.6, 
+       inset = 0.01)
 
 
 
@@ -83,12 +83,8 @@ log_pl <- function(params) {
   alpha_est <- params[1] 
   
   # Fixando o b0 em 0 para identificabilidade
-  b0 <- 0
-  b1 <- params[2]
-  g0 <- 0
-  g1 <- params[3]
-  betas_est <- c(b0, b1)
-  gammas_est <- c(g0, g1)
+  betas_est <- c(0, params[2], params[3])
+  gammas_est <- c(0, params[4], params[5])
   
   log_pl_total <- 0
   
@@ -125,7 +121,7 @@ log_pl <- function(params) {
 }
 
 # Otimização
-fit_pl <- optim(par = c(0, 0, 0), fn = log_pl)
+fit_pl <- optim(par = c(0, 0, 0, 0, 0), fn = log_pl)
 
 
 ### Metropolis-Hastings
@@ -149,13 +145,13 @@ log_priori <- function(params) {
 
 # Algoritmo
 n_steps <- 10000
-param_samples <- matrix(0, nrow = n_steps, ncol = 3)
+param_samples <- matrix(0, nrow = n_steps, ncol = 5)
 current_params <- fit_pl$par
 current_log_lik <- -log_pl(current_params) + log_priori(current_params)
 
 for(s in 1:n_steps) {
   # Random Walk
-  proposed_params <- current_params + rnorm(3, 0, 1)
+  proposed_params <- current_params + rnorm(5, 0, 0.01)
   proposed_log_lik <- -log_pl(proposed_params) + log_priori(proposed_params)
   
   # Razão de aceitação
@@ -168,13 +164,61 @@ for(s in 1:n_steps) {
 
 ### RESULTADOS
 
+# Tabela
 results <- data.frame(
-Parâmetro = c("Alpha", "Beta Ref", "Beta 1", "Gamma Ref", "Gamma 1"),
-Real = c(alpha, betas, gammas),
-PL = c(fit_pl$par[1], "-", fit_pl$par[2], "-", fit_pl$par[3]),
-MH = c(mean(param_samples[,1]), "-", mean(param_samples[,2]), "-", mean(param_samples[,3]))
+  Parâmetro = c("Alpha", "Beta Ref", "Beta 1", "Beta 2", 
+                "Gamma Ref", "Gamma 1", "Gamma 2"),
+  Real = c(alpha, betas, gammas),
+  PL = c(fit_pl$par[1], "-", fit_pl$par[2], fit_pl$par[3],
+         "-", fit_pl$par[4], fit_pl$par[5]),
+  MH = c(mean(param_samples[1001:10000,1]), "-", mean(param_samples[1001:10000,2]), mean(param_samples[1001:10000,3]),
+         "-", mean(param_samples[1001:10000,4]), mean(param_samples[1001:10000,5]))
 )
 
 print(results)
+
+# Gráficos
+plot_list <- list()
+par_names <- c("Alpha", "Beta 1", "Beta 2", "Gamma 1", "Gamma 2")
+par_values <- c(mean(param_samples[,1]), mean(param_samples[,2]), 
+                mean(param_samples[,3]), mean(param_samples[,4]), 
+                mean(param_samples[,5]))
+
+for(i in 1:ncol(param_samples)) {
+  
+  pdf(NULL) 
+  dev.control("enable")
+  par(mfrow = c(1, 2))
+  
+  # Amostra do parâmetro i
+  sample_current <- param_samples[, i]
+  
+  # Densidade da distribuição a posteriori
+  plot(density(sample_current), breaks = 30, prob = TRUE,
+       main = paste("Densidade:", par_names[i]),, 
+       ylab = "Densidade",
+       col = "black")
+  
+  # Valor real
+  abline(v = par_values[i], col = "red", lwd = 2)
+  
+  # IC90
+  ic_90 <- quantile(sample_current, probs = c(0.05, 0.95))
+  abline(v = ic_90[2], col = "blue", lwd = 2, lty = 2)
+  abline(v = ic_90[1], col = "blue", lwd = 2, lty = 2)
+  
+  # "Série temporal"
+  ts.plot(sample_current, type = "l", col = "black",
+          main = paste("Série Temporal:", par_names[i]),
+          xlab = "Iteração", ylab = "Valor")
+  
+  # Valor real
+  abline(h = par_values[i], col = "red", lwd = 2)
+  
+  plot_list[[i]] <- recordPlot()
+  dev.off() 
+}
+
+par(mfrow = c(1, 1))
 
 toc()
