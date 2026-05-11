@@ -67,7 +67,7 @@ legend("topright",
        inset = 0.01)
 
 
-### Chute do centroide
+### CHUTE DO CENTROIDE
 c0_mean <- matrix(nrow = n_colors, ncol = 2)
 c0_sd <- matrix(nrow = n_colors, ncol = 2)
 
