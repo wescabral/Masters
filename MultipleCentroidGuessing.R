@@ -1,3 +1,6 @@
+library(tictoc)
+tic()
+
 # Parâmetros do Modelo
 grid_size <- 50      # Tamanho da imagem (50x50)
 n_colors <- 2         # Cores
@@ -29,11 +32,40 @@ count_matches_by_color <- function(g, i, j, color) {
   return(res)
 }
 
+compute_all_match_counts <- function(g) {
+  match_counts <- matrix(0, grid_size, grid_size)
+  for(i in 1:grid_size) {
+    for(j in 1:grid_size) {
+      match_counts[i, j] <- count_matches_by_color(g, i, j, g[i, j])
+    }
+  }
+  return(match_counts)
+}
+
+match_counts <- compute_all_match_counts(grid)
+
+update_match_counts <- function(match_counts, grid, i, j, old_color, new_color) {
+  # Update the changed pixel and its 4 neighbors
+  neighbors <- list(c(i, j), c(i-1, j), c(i+1, j), c(i, j-1), c(i, j+1))
+  
+  for(neighbor in neighbors) {
+    ni <- neighbor[1]
+    nj <- neighbor[2]
+    if(ni >= 1 && ni <= grid_size && nj >= 1 && nj <= grid_size) {
+      match_counts[ni, nj] <- count_matches_by_color(grid, ni, nj, grid[ni, nj])
+    }
+  }
+  return(match_counts)
+}
+
 # Troca de cores por reversibilidade
 for(step in 1:n_iterations) {
   # Seleciona pixel aleatório
   i <- sample(1:grid_size, 1)
   j <- sample(1:grid_size, 1)
+
+  old_color <- grid[i, j]
+  old_matches <- match_counts[i, j]
   
   energies <- rep(0, n_colors)
   dists_norm <- (sqrt((i - centroides[,1])^2 + (j - centroides[,2])^2) + 1) / max_dist
@@ -41,15 +73,27 @@ for(step in 1:n_iterations) {
   dist_prx <- dists_norm[centroide_prx]
   
   for(color in 0:(n_colors-1)) {
+    # Calculando novamente os matches caso necessário ou usando valor prévio
+    if(color == old_color) {
+      matches <- old_matches
+    } else {
+      matches <- count_matches_by_color(grid, i, j, color)
+    }
     # Calcula a energia de cada cor
-    energies[color + 1] <- - alpha * count_matches_by_color(grid, i, j, color) - betas[color + 1] - gammas[centroide_prx, color + 1] * dist_prx
+    energies[color + 1] <- - alpha * matches - betas[color + 1] - gammas[centroide_prx, color + 1] * dist_prx
   }
   
   # Transforma as energias em probabilidade
   prob_colors <- exp(energies)/sum(exp(energies))
   
   # Critério de troca
-  grid[i, j] <- sample(0:(n_colors-1), 1, prob = prob_colors)
+  new_color <- sample(0:(n_colors-1), 1, prob = prob_colors)
+  grid[i, j] <- new_color
+
+  # Update na matrix de matches caso tenha trocado de cor
+  if(new_color != old_color) {
+    match_counts <- update_match_counts(match_counts, grid, i, j, old_color, new_color)
+  }
   
 }
 
@@ -79,20 +123,25 @@ centroides_0 = kmeans$centers
 
 # Matriz de distâncias normalizadas
 calc_dists_matrix <- function(centroides) {
-  dist_min_matrix <- matrix(0, grid_size, grid_size)
-  centroid_idx_matrix <- matrix(0, grid_size, grid_size)
+  i_seq <- 1:grid_size
+  j_seq <- 1:grid_size
   
-  for(i in 1:grid_size) {
-    for(j in 1:grid_size) {
-      dist_matrix <- (sqrt((i - centroides[,1])^2 + (j - centroides[,2])^2) + 1) / max_dist
-      
-      dist_min_matrix[i,j] <- min(dist_matrix)
-      centroid_idx_matrix[i,j] <- which.min(dist_matrix)
+  distances_list <- lapply(1:nrow(centroides), function(k) {
+    dist_matrix <- matrix(NA, grid_size, grid_size)
+    for(i in i_seq) {
+      for(j in j_seq) {
+        dist_matrix[i, j] <- sqrt((i - centroides[k, 1])^2 + (j - centroides[k, 2])^2) + 1
+      }
     }
-  }
+    dist_matrix
+  })
+  
+  all_dists <- simplify2array(distances_list) / max_dist
+  dist_min_matrix <- apply(all_dists, c(1, 2), min)
+  centroid_idx_matrix <- apply(all_dists, c(1, 2), which.min)
+  
   return(list(dists = dist_min_matrix, indices = centroid_idx_matrix))
 }
-
 
 
 # Função de Log-PL que opera diretamente sobre a matriz 'grid'
@@ -143,10 +192,11 @@ log_pl <- function(params, dists_matrix, centroid_idx_matrix) {
 }
 
 # Otimização
+dists_info_0 <- calc_dists_matrix(centroides_0)
 fit_pl <- optim(par = c(0, 0, 0, 0), 
                 fn = log_pl, 
-                dists_matrix = calc_dists_matrix(centroides_0)[[1]],
-                centroid_idx_matrix = calc_dists_matrix(centroides_0)[[2]])
+                dists_matrix = dists_info_0[[1]],
+                centroid_idx_matrix = dists_info_0[[2]])
 
 
 ### Metropolis-Hastings
@@ -174,8 +224,11 @@ param_samples <- matrix(0, nrow = n_steps, ncol = 4)
 centroid_samples <- matrix(0, nrow = n_steps, 4)
 current_params <- fit_pl$par
 current_centroid <- centroides_0
-current_dists <- calc_dists_matrix(current_centroid)[[1]]
-current_idx <- calc_dists_matrix(current_centroid)[[2]]
+
+current_dists_info <- calc_dists_matrix(current_centroid)
+current_dists <- current_dists_info[[1]]
+current_idx <- current_dists_info[[2]]
+
 current_log_lik <- -log_pl(current_params, current_dists, current_idx) + log_priori(current_params)
 
 for(s in 1:n_steps) {
@@ -192,14 +245,18 @@ for(s in 1:n_steps) {
   # Random Walk no centroide
   proposed_centroid <- current_centroid + round(rnorm(4, 0, 1))
   proposed_centroid <- matrix(pmax(1, pmin(grid_size, proposed_centroid)), nrow = 2)
-  proposed_dists <- calc_dists_matrix(proposed_centroid)[[1]]
-  proposed_idx <- calc_dists_matrix(proposed_centroid)[[2]]
+
+  proposed_dists_info <- calc_dists_matrix(proposed_centroid)
+  proposed_dists <- proposed_dists_info[[1]]
+  proposed_idx <- proposed_dists_info[[2]]
+
   proposed_log_lik <- -log_pl(current_params, proposed_dists, proposed_idx) + log_priori(current_params)
   
   # Razão de aceitação dos parâmetros
   if(log(runif(1)) < (proposed_log_lik - current_log_lik)) {
     current_centroid <- proposed_centroid
     current_dists <- proposed_dists
+    current_idx <- proposed_idx
     current_log_lik <- proposed_log_lik
   }
   
@@ -213,16 +270,15 @@ for(s in 1:n_steps) {
 # Tabela
 results <- data.frame(
   Parâmetro = c("Alpha", "Beta Ref", "Beta 1", 
-                "Gamma1 Ref", "Gamma1 1", 
-                "Gamma2 Ref", "Gamma2 1",
+                "Gamma1 Ref", "Gamma2 Ref", 
+                "Gamma1 1", "Gamma2 1",
                 "Centroide1 X", "Centroide2 X",
                 "Centroide1 Y", "Centroide2 Y"),
   Real = c(alpha, betas, gammas, centroides),
-  PL = c(fit_pl$par[1], "-", fit_pl$par[2], "-", fit_pl$par[3], "-", fit_pl$par[4], 
+  PL = c(fit_pl$par[1], "-", fit_pl$par[2], "-", "-", fit_pl$par[3], fit_pl$par[4], 
          centroides_0[1], centroides_0[2], centroides_0[3], centroides_0[4]),
   MH = c(mean(param_samples[1001:10000,1]), "-", mean(param_samples[1001:10000,2]), 
-         "-", mean(param_samples[1001:10000,3]),
-         "-", mean(param_samples[1001:10000,4]),
+         "-", "-",mean(param_samples[1001:10000,3]), mean(param_samples[1001:10000,4]),
          mean(centroid_samples[1001:10000,1]), mean(centroid_samples[1001:10000,2]),
          mean(centroid_samples[1001:10000,3]), mean(centroid_samples[1001:10000,4]))
 )
@@ -267,3 +323,5 @@ for(i in 1:ncol(param_samples)) {
 }
 
 par(mfrow = c(1, 1))
+
+toc()
