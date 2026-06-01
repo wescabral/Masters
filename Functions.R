@@ -321,15 +321,15 @@ infer_parameters <- function(grid, n_centroids, n_steps) {
 
 
 
-
-generate_results <- function(par_names, param_samples) {
-  plot_list <- list()
+generate_results <- function(par_names, param_samples, burnin) {
   par_values <- c(
-    mean(param_samples[1001:10000, 1]),
-    mean(param_samples[1001:10000, 2]),
-    mean(param_samples[1001:10000, 3]),
-    mean(param_samples[1001:10000, 4])
+    mean(param_samples[burnin:nrow(param_samples), 1]),
+    mean(param_samples[burnin:nrow(param_samples), 2]),
+    mean(param_samples[burnin:nrow(param_samples), 3]),
+    mean(param_samples[burnin:nrow(param_samples), 4])
   )
+  
+  plot_obj <- recordPlot()
   
   par(
     mfrow = c(4, 2),
@@ -346,7 +346,7 @@ generate_results <- function(par_names, param_samples) {
       density(sample_current),
       breaks = 30,
       prob = TRUE,
-      main = paste("Densidade:", par_names[i]),
+      main = paste("Densidade:", par_names[i], "=", par_values[i]),
       ,
       ylab = "Densidade",
       col = "black"
@@ -377,7 +377,7 @@ generate_results <- function(par_names, param_samples) {
       sample_current,
       type = "l",
       col = "black",
-      main = paste("Passeio aleatório:", par_names[i]),
+      main = paste("Passeio aleatório:", par_names[i], "=", par_values[i]),
       xlab = "Iteração",
       ylab = "Valor"
     )
@@ -389,11 +389,16 @@ generate_results <- function(par_names, param_samples) {
     
   }
   
+  plot_obj <- recordPlot()
+  
   par(mfrow = c(1, 1))
+  
+  return(list(plot = plot_obj, plot_values = par_values))
   
 }
 
-image = generate_image(50, 2, c(-1, -1.2, 5.5, 3.5), matrix(data = c(10, 10, 40, 40), 2, byrow = TRUE), 200)
-params_infered = infer_parameters(imagem_1$grid, n_steps = 10000, n_centroids = 2)
+image = generate_image(50, 2, c(-1, -1, 5, 3), matrix(data = c(10, 10, 35, 35), 2, byrow = TRUE), 200)
+params_infered = infer_parameters(imagem_1$grid, n_steps = 100000, n_centroids = 2)
 results = generate_results(c("Alpha", "Beta 1", "Gamma1 1", "Gamma2 1"),
-                           params_infered$parameters) 
+                           params_infered$parameters,
+                           30000)
