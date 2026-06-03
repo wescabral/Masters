@@ -77,12 +77,15 @@ generate_image <- function(grid_size,
   match_counts <- compute_all_match_counts(grid)
   
   for (refresh in 1:n_refreshes) {
-    # Refreshing order
+    # Pixel order
+    pixel_order <- sample(1:(grid_size^2))
     
     for (step in 1:(grid_size^2)) {
       # Refreshing pixel
-      i <- sample(1:grid_size, 1)
-      j <- sample(1:grid_size, 1)
+      pixel_idx <- pixel_order[step]
+      i <- ((pixel_idx - 1) %% grid_size) + 1
+      j <- ((pixel_idx - 1) %/% grid_size) + 1
+      
       old_color <- grid[i, j]
       old_matches <- match_counts[i, j]
       
