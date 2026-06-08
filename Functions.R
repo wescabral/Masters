@@ -400,8 +400,8 @@ generate_results <- function(par_names, param_samples, burnin) {
   
 }
 
-image = generate_image(50, 2, c(-1, -1, 5, 3), matrix(data = c(10, 10, 35, 35), 2, byrow = TRUE), 200)
-params_infered = infer_parameters(imagem_1$grid, n_steps = 100000, n_centroids = 2)
-results = generate_results(c("Alpha", "Beta 1", "Gamma1 1", "Gamma2 1"),
-                           params_infered$parameters,
-                           30000)
+#image = generate_image(50, 2, c(-1, -1, 5, 3), matrix(data = c(10, 10, 35, 35), 2, byrow = TRUE), 200)
+#params_infered = infer_parameters(image$grid, n_steps = 100000, n_centroids = 2)
+#results = generate_results(c("Alpha", "Beta 1", "Gamma1 1", "Gamma2 1"),
+#                           params_infered$parameters,
+#                           30000)
