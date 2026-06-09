@@ -1,3 +1,5 @@
+#Sys.setenv(MAKE = "c:/rtools45/usr/bin/make")
+#Sys.setenv(PATH = paste("c:/rtools45/x86_64-w64-mingw32.static.posix/bin;c:/rtools45/usr/bin", Sys.getenv("PATH"), sep = ";"))
 #setwd("C:/Users/Wesley/Documents/Unicamp/Mestrado/Masters")
 source("Functions.R")
 

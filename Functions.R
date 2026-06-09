@@ -231,7 +231,10 @@ infer_parameters <- function(grid, n_centroids, n_steps) {
   # Centroid
   kmeans_result <- kmeans(which(grid == 1, arr.ind = TRUE), centers = n_centroids)
   centroids_0 <- kmeans_result$centers
-  centroid_order <- order(centroids_0[, 1], centroids_0[, 2])
+
+  # Sort by distance from origin
+  distances_from_origin <- rowSums(centroids_0^2)
+  centroid_order <- order(distances_from_origin)
   centroids_0 <- centroids_0[centroid_order, ]
   
   # Parameters
