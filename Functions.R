@@ -1,6 +1,5 @@
 library(Rcpp)
 
-
 generate_image <- function(grid_size,
                            n_colors,
                            params,

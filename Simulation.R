@@ -1,3 +1,4 @@
+#setwd("C:/Users/Wesley/Documents/Unicamp/Mestrado/Masters")
 source("Functions.R")
 
 # Simulation parameters
@@ -62,8 +63,8 @@ for (idx in seq_along(gamma1_seq)) {
 
 # Create summary table
 summary_table <- data.frame(
-  gamma1_true = gamma1_sequence,
-  gamma2_true = gamma2_sequence,
+  gamma1_true = gamma1_seq,
+  gamma2_true = gamma2_seq,
   alpha_mean = sapply(simulation_results, function(x) x$param_means[1]),
   alpha_sd = sapply(simulation_results, function(x) x$param_sd[1]),
   beta_mean = sapply(simulation_results, function(x) x$param_means[2]),
