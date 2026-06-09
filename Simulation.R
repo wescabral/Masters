@@ -4,8 +4,8 @@
 source("Functions.R")
 
 # Simulation parameters
-gamma1_seq <- seq(3, 6, by = 0.5)
-gamma2_seq <- seq(6, 3, by = -0.5)
+gamma1_seq <- seq(3, 5, by = 1)
+gamma2_seq <- seq(5, 3, by = -1)
 
 # Storage for results
 simulation_results <- list()
@@ -22,7 +22,7 @@ centroids <- matrix(data = c(10, 10, 35, 35), 2, byrow = TRUE)
 n_centroids <- 2
 n_inference_steps <- 100000
 burnin <- 30000
-
+n
 # Run simulation for each gamma1 and gamma2 pair
 sim_idx <- 1
 for (idx in seq_along(gamma1_seq)) {
