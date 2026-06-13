@@ -1,4 +1,5 @@
 library(Rcpp)
+library(reshape2)
 
 generate_image <- function(grid_size,
                            n_colors,
@@ -230,7 +231,7 @@ infer_parameters <- function(grid, n_centroids, n_steps) {
   
   # Centroid
   kmeans_result <- kmeans(which(grid == 1, arr.ind = TRUE), centers = n_centroids)
-  centroids_0 <- kmeans_result$centers
+  centroids_0 <- round(kmeans_result$centers, 0)
 
   # Sort by distance from origin
   distances_from_origin <- rowSums(centroids_0^2)
@@ -315,20 +316,43 @@ infer_parameters <- function(grid, n_centroids, n_steps) {
     centroid_samples[s, ] <- current_centroid
     
   }
+
+
+  ### Centroids heatmap
+
+  coords_x <- centroid_samples[, 1:n_centroids]
+  coords_y <- centroid_samples[, (n_centroids + 1):ncol(centroid_samples)]
+
+  heatmap_matrix <- matrix(0, nrow = grid_size, ncol = grid_size)
+
+  for (i in 1:nrow(centroid_samples)) {
+  for (j in 1:n_centroids) {
+  x_idx <- coords_x[i, j] 
+  y_idx <- coords_y[i, j] 
+
+  # Validating indexes
+  if (x_idx > 0 && x_idx <= ncol(heatmap_matrix) &&
+  y_idx > 0 && y_idx <= nrow(heatmap_matrix)) {
+  heatmap_matrix[y_idx, x_idx] <- heatmap_matrix[y_idx, x_idx] + 1
+  }
+  }
+  }
+
   
   return(
     list(
       parameters = param_samples,
       centroids = centroid_samples,
       parameters_0 = fit_pl$par,
-      centroids_0 = centroids_0
+      centroids_0 = centroids_0,
+      centroids_heatmap = heatmap_matrix
     )
   )
 }
 
 
 
-generate_results <- function(par_names, param_samples, burnin) {
+generate_results <- function(par_names, param_samples, heatmap_matrix, burnin) {
   par_values <- c(
     mean(param_samples[burnin:nrow(param_samples), 1]),
     mean(param_samples[burnin:nrow(param_samples), 2]),
@@ -336,7 +360,7 @@ generate_results <- function(par_names, param_samples, burnin) {
     mean(param_samples[burnin:nrow(param_samples), 4])
   )
   
-  plot_obj <- recordPlot()
+  plot_params <- recordPlot()
   
   par(
     mfrow = c(4, 2),
@@ -396,16 +420,31 @@ generate_results <- function(par_names, param_samples, burnin) {
     
   }
   
-  plot_obj <- recordPlot()
+  plot_params <- recordPlot()
   
   par(mfrow = c(1, 1))
+
+  heatmap_df <- melt(heatmap_matrix)
+  colnames(heatmap_df) <- c("Y", "X", "Frequency")
+      
+  heatmap <- ggplot(heatmap_df, aes(x = X, y = Y, fill = Frequency)) +
+        geom_tile() +
+        scale_fill_gradient(low = "white", high = "darkred") +
+        labs(title = paste("Centroids heatmap"),
+             x = "X",
+             y = "Y",
+             fill = "Frequency") +
+        theme_minimal() +
+        theme(panel.grid = element_blank())
+
   
-  return(list(plot = plot_obj, plot_values = par_values))
+  return(list(plot_params = plot_params, plot_values = par_values, plot_heatmap = heatmap))
   
 }
 
-#image = generate_image(50, 2, c(-1, -1, 5, 3), matrix(data = c(10, 10, 35, 35), 2, byrow = TRUE), 200)
-#params_infered = infer_parameters(image$grid, n_steps = 100000, n_centroids = 2)
-#results = generate_results(c("Alpha", "Beta 1", "Gamma1 1", "Gamma2 1"),
-#                           params_infered$parameters,
-#                           30000)
+image = generate_image(50, 2, c(-1, -1, 5, 3), matrix(data = c(10, 10, 35, 35), 2, byrow = TRUE), 200)
+params_infered = infer_parameters(image$grid, n_steps = 100000, n_centroids = 2)
+results = generate_results(c("Alpha", "Beta 1", "Gamma1 1", "Gamma2 1"),
+                           params_infered$parameters,
+                           params_infered$centroids_heatmap,
+                           30000)
