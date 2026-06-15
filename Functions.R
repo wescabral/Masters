@@ -501,28 +501,29 @@ generate_results <- function(par_names, param_samples, centroid_samples, heatmap
   }
 
   # Circle creating function
-  create_circle <- function(center_x, center_y, radius, npoints = 100) {
-    angles <- seq(0, 2*pi, length.out = npoints)
+  create_circle <- function(idx) {
+    center_x <- infarea_df$x[idx]
+    center_y <- infarea_df$y[idx]
+    radius <- infarea_df$radius[idx]
+    
+    angles <- seq(0, 2*pi, length.out = 100)
     data.frame(
       x = center_x + radius * cos(angles),
       y = center_y + radius * sin(angles),
-      centroid_id = paste0("C", which(infarea_df$x == center_x))
+      centroid_id = as.character(idx),
+      stringsAsFactors = FALSE
     )
   }
 
   infarea_df <- data.frame(
     x = round(colMeans(centroid_samples[burnin:nrow(centroid_samples), 1:(ncol(centroid_samples)/2)])),
     y = round(colMeans(centroid_samples[burnin:nrow(centroid_samples), (1 + ncol(centroid_samples)/2):ncol(centroid_samples)])),
-    radius = calculate_beta_gamma_ratios(centroid_samples, burnin)
+    radius = calculate_beta_gamma_ratios(param_samples, burnin)
   )
 
-  circles_data <- do.call(rbind, mapply(
-    create_circle,
-    infarea_df$x,
-    infarea_df$y,
-    infarea_df$radius,
-    SIMPLIFY = FALSE
-  ))
+  circles_data_list <- lapply(1:nrow(infarea_df), create_circle)
+  circles_data <- do.call(rbind, circles_data_list)
+  rownames(circles_data) <- NULL
 
   plot_infarea <- ggplot() +
     geom_path(data = circles_data, aes(x = x, y = y, group = centroid_id),
