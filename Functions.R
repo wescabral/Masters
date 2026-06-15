@@ -1,5 +1,7 @@
 library(Rcpp)
 library(reshape2)
+library(ggplot2)
+library(ggforce)
 
 generate_image <- function(grid_size,
                            n_colors,
@@ -317,6 +319,22 @@ infer_parameters <- function(grid, n_centroids, n_steps) {
     
   }
 
+  # Labeling parameters
+  param_names <- c("alpha")
+  
+  for (i in 1:(n_colors - 1)) {
+    param_names <- c(param_names, paste0("beta_", i))
+  }
+  
+  for (j in 1:n_colors) {
+    for (i in 1:n_centroids) {
+      param_names <- c(param_names, paste0("gamma_", i, "_", j))
+    }
+  }
+
+  param_samples_df <- as.data.frame(param_samples)
+  colnames(param_samples_df) <- param_names[1:ncol(param_samples_df)]
+
 
   ### Centroids heatmap
 
@@ -341,7 +359,7 @@ infer_parameters <- function(grid, n_centroids, n_steps) {
   
   return(
     list(
-      parameters = param_samples,
+      parameters = param_samples_df,
       centroids = centroid_samples,
       parameters_0 = fit_pl$par,
       centroids_0 = centroids_0,
@@ -352,7 +370,9 @@ infer_parameters <- function(grid, n_centroids, n_steps) {
 
 
 
-generate_results <- function(par_names, param_samples, heatmap_matrix, burnin) {
+generate_results <- function(par_names, param_samples, centroid_samples, heatmap_matrix, burnin) {
+  ### Parameters plot
+
   par_values <- c(
     mean(param_samples[burnin:nrow(param_samples), 1]),
     mean(param_samples[burnin:nrow(param_samples), 2]),
@@ -369,10 +389,9 @@ generate_results <- function(par_names, param_samples, heatmap_matrix, burnin) {
   )
   
   for (i in 1:ncol(param_samples)) {
-    # Amostra do parâmetro i
     sample_current <- param_samples[, i]
     
-    # Densidade da distribuição a posteriori
+    # Posterior density
     plot(
       density(sample_current),
       breaks = 30,
@@ -383,7 +402,7 @@ generate_results <- function(par_names, param_samples, heatmap_matrix, burnin) {
       col = "black"
     )
     
-    # Valor real
+    # Posterior average
     abline(v = par_values[i],
            col = "red",
            lwd = 2)
@@ -403,7 +422,7 @@ generate_results <- function(par_names, param_samples, heatmap_matrix, burnin) {
       lty = 2
     )
     
-    # "Série temporal"
+    # "Time series"
     ts.plot(
       sample_current,
       type = "l",
@@ -413,7 +432,7 @@ generate_results <- function(par_names, param_samples, heatmap_matrix, burnin) {
       ylab = "Valor"
     )
     
-    # Valor real
+    # Posterior average
     abline(h = par_values[i],
            col = "red",
            lwd = 2)
@@ -421,8 +440,104 @@ generate_results <- function(par_names, param_samples, heatmap_matrix, burnin) {
   }
   
   plot_params <- recordPlot()
-  
+    
   par(mfrow = c(1, 1))
+
+  
+  ### Centroid influence area plot
+
+  calculate_beta_gamma_ratios <- function(param_samples, burnin) {
+  
+    # Extract means after burnin
+    param_means <- colMeans(param_samples[burnin:nrow(param_samples), ])
+    
+    # Extract beta and gamma columns using names
+    col_names <- names(param_means)
+    
+    # Identify beta and gamma columns
+    beta_cols <- col_names[grepl("^beta_", col_names)]
+    gamma_cols <- col_names[grepl("^gamma_", col_names)]
+    
+    # Create results list
+    ratios_list <- list()
+    
+    # For each gamma column, find its corresponding beta
+    for (gamma_col in gamma_cols) {
+      # Parse gamma_i_j to get color j
+      gamma_parts <- strsplit(gamma_col, "_")[[1]]
+      centroid_idx <- as.numeric(gamma_parts[2])
+      color_idx <- as.numeric(gamma_parts[3])
+      
+      # Find corresponding beta (beta_j where j is the color)
+      # Note: beta_1 corresponds to color 1, beta_2 to color 2, etc.
+      beta_col <- paste0("beta_", color_idx)
+      
+      if (beta_col %in% names(param_means)) {
+        beta_val <- param_means[beta_col]
+        gamma_val <- param_means[gamma_col]
+        
+        # Calculate ratio
+        if (gamma_val != 0) {
+          ratio <- beta_val / gamma_val
+        } else {
+          ratio <- NA
+        }
+        
+        ratios_list[[gamma_col]] <- data.frame(
+          Column = gamma_col,
+          Centroid = centroid_idx,
+          Color = color_idx,
+          Beta = beta_val,
+          Gamma = gamma_val,
+          Ratio_Beta_Gamma = ratio,
+          row.names = NULL
+        )
+      }
+    }
+    
+    # Combine all into one data frame
+    ratios_df <- do.call(rbind, ratios_list)    
+    return(ratios_df)
+  }
+
+  # Circle creating function
+  create_circle <- function(center_x, center_y, radius, npoints = 100) {
+    angles <- seq(0, 2*pi, length.out = npoints)
+    data.frame(
+      x = center_x + radius * cos(angles),
+      y = center_y + radius * sin(angles),
+      centroid_id = paste0("C", which(infarea_df$x == center_x))
+    )
+  }
+
+  infarea_df <- data.frame(
+    x = round(colMeans(centroid_samples[burnin:nrow(centroid_samples), 1:(ncol(centroid_samples)/2)])),
+    y = round(colMeans(centroid_samples[burnin:nrow(centroid_samples), (1 + ncol(centroid_samples)/2):ncol(centroid_samples)])),
+    radius = calculate_beta_gamma_ratios(centroid_samples, burnin)
+  )
+
+  circles_data <- do.call(rbind, mapply(
+    create_circle,
+    infarea_df$x,
+    infarea_df$y,
+    infarea_df$radius,
+    SIMPLIFY = FALSE
+  ))
+
+  plot_infarea <- ggplot() +
+    geom_path(data = circles_data, aes(x = x, y = y, group = centroid_id),
+              color = "blue", linewidth = 1) +
+    geom_point(data = infarea_df, aes(x = x, y = y),
+               color = "red", size = 3) +
+    xlim(0, 50) +
+    ylim(0, 50) +
+    coord_fixed() +
+    theme_minimal() +
+    labs(title = "Grid 50x50 com Círculos de Influência")
+  
+  
+
+  ### Centroid heatmap plot
 
   heatmap_df <- melt(heatmap_matrix)
   colnames(heatmap_df) <- c("Y", "X", "Frequency")
@@ -438,13 +553,16 @@ generate_results <- function(par_names, param_samples, heatmap_matrix, burnin) {
         theme(panel.grid = element_blank())
 
   
-  return(list(plot_params = plot_params, plot_values = par_values, plot_heatmap = heatmap))
-  
+  return(list(plot_params = plot_params, 
+    plot_values = par_values,
+    plot_infarea = plot_infarea, 
+    plot_heatmap = heatmap))
 }
 
 image = generate_image(50, 2, c(-1, -1, 5, 3), matrix(data = c(10, 10, 35, 35), 2, byrow = TRUE), 200)
 params_infered = infer_parameters(image$grid, n_steps = 100000, n_centroids = 2)
 results = generate_results(c("Alpha", "Beta 1", "Gamma1 1", "Gamma2 1"),
                            params_infered$parameters,
+                           params_infered$centroids,
                            params_infered$centroids_heatmap,
                            30000)
