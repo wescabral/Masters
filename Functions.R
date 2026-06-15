@@ -513,7 +513,7 @@ generate_results <- function(par_names, param_samples, centroid_samples, heatmap
   infarea_df <- data.frame(
     x = round(colMeans(centroid_samples[burnin:nrow(centroid_samples), 1:(ncol(centroid_samples)/2)])),
     y = round(colMeans(centroid_samples[burnin:nrow(centroid_samples), (1 + ncol(centroid_samples)/2):ncol(centroid_samples)])),
-    radius = calculate_beta_gamma_ratios(centroid_samples, burnin)
+    radius = calculate_beta_gamma_ratios(param_samples, burnin)$Ratio_Beta_Gamma * (-nrow(heatmap_matrix))
   )
 
   circles_data <- do.call(rbind, mapply(
@@ -556,8 +556,7 @@ generate_results <- function(par_names, param_samples, centroid_samples, heatmap
   return(list(plot_params = plot_params, 
     plot_values = par_values,
     plot_infarea = plot_infarea, 
-    plot_heatmap = heatmap,
-    radius = radius_df))
+    plot_heatmap = heatmap))
 }
 
 image = generate_image(50, 2, c(-1, -1, 5, 3), matrix(data = c(10, 10, 35, 35), 2, byrow = TRUE), 200)
@@ -567,3 +566,8 @@ results = generate_results(c("Alpha", "Beta 1", "Gamma1 1", "Gamma2 1"),
                            params_infered$centroids,
                            params_infered$centroids_heatmap,
                            30000)
+
+results$plot_infarea
+image(image$grid, col = topo.colors(2), main = "")
+new_image = generate_image(50, 2, results$plot_values, matrix(data = c(10, 10, 35, 35), 2, byrow = TRUE), 200)
+
