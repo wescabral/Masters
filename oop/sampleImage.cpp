@@ -3,17 +3,17 @@
 using namespace Rcpp;
 
 // [[Rcpp::export]]
-NumericMatrix gibbsSampler(NumericMatrix z, 
+IntegerMatrix gibbsSampler(IntegerMatrix z, 
                            double alpha,
-                           NumericVector betaVector,
-                           IntegerVector valueSet,
-                           NumericMatrix seeds,        // Cada linha: (x, y) de uma seed
-                           NumericMatrix deltaMatrix,  // Cada linha: vetor delta de uma seed
+                           double beta,
+                           int ncolors,
+                           NumericMatrix seeds,         // Cada linha: (x, y) de uma seed
+                           IntegerVector seedColors,    // Cor associada a cada seed
+                           NumericVector seedDeltas,    // Parâmetro escalar de cada seed
                            int steps) {
   int nrows = z.nrow();
   int ncols = z.ncol();
   int n = nrows * ncols;
-  int ncolors = valueSet.size();
   int nseeds = seeds.nrow();
   
   NumericMatrix distances(n, nseeds);
@@ -43,7 +43,7 @@ NumericMatrix gibbsSampler(NumericMatrix z,
       int pos_x = pos % nrows;
       int pos_y = pos / nrows;
       
-      std::vector<double> neighbors;
+      std::vector<int> neighbors;
       neighbors.reserve(4);
       
       if(pos_x > 0) neighbors.push_back(z(pos_x - 1, pos_y));
@@ -55,17 +55,17 @@ NumericMatrix gibbsSampler(NumericMatrix z,
       double max_energy = R_NegInf;
       
       for(int v = 0; v < ncolors; v++) {
-        double value = valueSet[v];
-        
         double contrib = 0.0;
         for(size_t j = 0; j < neighbors.size(); j++) {
-          contrib += (value == neighbors[j]) ? alpha : 0.0;
+          contrib += (v == neighbors[j]) ? alpha : 0.0;
         }
         
-        double energy = contrib + betaVector[v];
+        double energy = contrib + (v == 0 ? beta : 0.0);
         
         for(int s = 0; s < nseeds; s++) {
-          energy += deltaMatrix(s, v) / (1 + distances(pos, s));
+          if(v == seedColors[s]) {
+            energy += seedDeltas[s] / (1 + distances(pos, s));
+          }
         }
         
         energies[v] = energy;
@@ -96,7 +96,7 @@ NumericMatrix gibbsSampler(NumericMatrix z,
         }
       }
       
-      z(pos_x, pos_y) = valueSet[selected];
+      z(pos_x, pos_y) = selected;
     }
   }
   

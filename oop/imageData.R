@@ -53,10 +53,3 @@ imageData <- R6Class("imageData",
     .ncolors = NULL
   )
 )
-
-#n <- 100
-#m <- 120
-#a <- matrix(rbinom(n*m, size = 1, prob = 0.3), nrow = n, ncol = m)
-
-#x <- imageData$new(a)
-#x$plot()
