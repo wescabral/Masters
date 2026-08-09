@@ -277,12 +277,12 @@ seedBayesianResult <- R6Class(
 seedBayesian <- R6Class(
   "seedBayesian",
   public = list(
-    initialize = function(image, seeds, ncolors, priors) {
+    initialize = function(image, seeds_info, ncolors, priors) {
       private$.image      <- image
-      private$.seeds      <- seeds
+      private$.seeds      <- self$seeds_kmeans(seeds_info)
       private$.ncolors    <- ncolors
       private$.priors     <- priors
-      private$.seedColors <- as.integer(sapply(seeds, function(s) s$color))
+      private$.seedColors <- as.integer(sapply(private$.seeds, function(s) s$color))
 
       nrows <- image$dim[1]
       ncols <- image$dim[2]
@@ -291,6 +291,45 @@ seedBayesian <- R6Class(
       private$.pos_x   <- (seq_len(n) - 1L) %% nrows
       private$.pos_y   <- (seq_len(n) - 1L) %/% nrows
       private$.zMatrix <- matrix(as.integer(image$matrix), nrow = nrows, ncol = ncols)
+    },
+
+    seeds_kmeans = function(seeds_info) {
+      all_seeds <- list()
+      
+      for (config in seeds_info) {
+        color <- config$color
+        n_seeds <- config$n_seeds
+        
+        color_coords <- which(private$.image$matrix == color, arr.ind = TRUE)
+        
+        if (nrow(color_coords) < n_seeds) {
+          stop(sprintf("Not enough color %d pixels (%d) for %d seeds. Need at least %d pixels.",
+                       color, nrow(color_coords), n_seeds, n_seeds))
+        }
+        
+        # Média pro caso de uma seed, kmeans pra mais de uma
+        if (n_seeds == 1) {
+          centroid <- colMeans(color_coords)
+          centroids <- matrix(round(centroid, 0), nrow = 1)
+        } else {
+          kmeans_result <- kmeans(color_coords, centers = n_seeds, iter.max = 100)
+          centroids <- round(kmeans_result$centers, 0)
+          
+          # Ordena as seeds
+          distances_from_origin <- rowSums(centroids^2)
+          centroid_order <- order(distances_from_origin)
+          centroids <- centroids[centroid_order, ]
+        }
+        
+        for (i in seq_len(n_seeds)) {
+          all_seeds <- c(all_seeds, list(list(
+            position = as.integer(centroids[i, ]),
+            color = as.integer(color)
+          )))
+        }
+      }
+      
+      return(all_seeds)
     },
 
     # Roda n_iter iterações MH alternando passo de parâmetros e passo de posições
@@ -308,10 +347,11 @@ seedBayesian <- R6Class(
         message("Initializing from maximum pseudo-likelihood estimate...")
         fitter <- seedModelFitter$new(
           image   = private$.image,
-          seeds   = private$.seeds,
+          seeds_info   = seeds_info,
           ncolors = private$.ncolors
         )
         est <- fitter$fit()$estimates
+        est <- est[names(est) != "seeds"]
         par <- c(est[["alpha"]],
                  est[["beta"]],
                  est[paste0("delta", seq_len(nseeds))])

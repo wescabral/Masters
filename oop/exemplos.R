@@ -18,29 +18,26 @@ seeds_true <- list(
 
 mod <- seedModel$new(alpha = 1.2, beta = 1, seeds = seeds_true, ncolors = 3)
 img <- mod$sampleImage(dim = c(150, 150), steps = 80)
-img$plot()
 
 # 2. Máxima pseudo-likelihood
-# (Aqui vamos considerar as sementes fixas)
 
-seeds_fit <- list(
-  list(position = c(50, 50),   color = 1),
-  list(position = c(100, 100), color = 2)
+seeds_info <- list(
+  list(color = 1, n_seeds = 1),
+  list(color = 2, n_seeds = 1)
 )
 
-fitter <- seedModelFitter$new(image = img, seeds = seeds_fit, ncolors = 3)
+fitter <- seedModelFitter$new(image = img, seeds_info = seeds_info, ncolors = 3)
 mle    <- fitter$fit(alpha_init = 1, beta_init = 1)
 
 mle              # estimativas + convergência
 mle$estimates    # vetor nomeado: alpha, beta, delta1, delta2
+mle$seeds        # seeds kmeans
 mle$plot()       # imagem + círculos de influência nos valores MLE
 
 # Simular nova imagem com os parâmetros ajustados
 mle$model$sampleImage(c(150, 150), steps = 80)$plot()
 
 # 3. Inferência Bayesiana via MCMC
-# (Aqui as sementes vão mudar, mas precisamos passar o ponto inicial
-# Pode usar o k-means, por exemplo)
 
 prioris <- list(
   shape_alpha = 2, rate_alpha = 1, 
@@ -48,7 +45,7 @@ prioris <- list(
   shape_delta = 10, rate_delta = 1
 )
 
-sampler <- seedBayesian$new(image = img, seeds = seeds_fit, ncolors = 3, priors = prioris)
+sampler <- seedBayesian$new(image = img, seeds_info = seeds_info, ncolors = 3, priors = prioris)
 sampler   # estrutura e hiperparâmetros
 
 # init = NULL: inicializa automaticamente no MLE

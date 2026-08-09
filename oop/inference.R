@@ -11,6 +11,7 @@ seedFitResult <- R6Class(
       private$.convergence <- convergence
       private$.estimates   <- estimates
       private$.image       <- image
+      private$.seeds       <- model$seeds
     },
 
     print = function(...) {
@@ -19,7 +20,12 @@ seedFitResult <- R6Class(
       cat(sprintf("  log-PL    : %.4f\n", private$.logPL))
       cat("  estimates :\n")
       for (nm in names(private$.estimates)) {
-        cat(sprintf("    %-10s  %.4f\n", nm, private$.estimates[[nm]]))
+        val <- private$.estimates[[nm]]
+        if (is.list(val)) {
+          cat(sprintf("    %-10s  [%d seeds]\n", nm, length(val)))
+        } else {
+          cat(sprintf("    %-10s  %.4f\n", nm, val))
+        }
       }
       invisible(self)
     },
@@ -57,14 +63,16 @@ seedFitResult <- R6Class(
     logPL       = function() private$.logPL,
     convergence = function() private$.convergence,
     estimates   = function() private$.estimates,
-    image       = function() private$.image
+    image       = function() private$.image,
+    seeds       = function() private$.seeds
   ),
   private = list(
     .model       = NULL,
     .logPL       = NULL,
     .convergence = NULL,
     .estimates   = NULL,
-    .image       = NULL
+    .image       = NULL,
+    .seeds       = NULL
   )
 )
 
@@ -72,14 +80,14 @@ seedFitResult <- R6Class(
 seedModelFitter <- R6Class(
   "seedModelFitter",
   public = list(
-    initialize = function(image, seeds, ncolors) {
+    initialize = function(image, seeds_info, ncolors) {
       private$.image    <- image
-      private$.seeds    <- seeds
+      private$.seeds    <- self$seeds_kmeans(seeds_info)
       private$.ncolors  <- ncolors
-      nseeds     <- length(seeds)
-      seedMatrix <- do.call(rbind, lapply(seeds, function(s) s$position))
+      nseeds     <- length(private$.seeds)
+      seedMatrix <- do.call(rbind, lapply(private$.seeds, function(s) s$position))
       private$.seedMatrix <- seedMatrix
-      private$.seedColors <- as.integer(sapply(seeds, function(s) s$color))
+      private$.seedColors <- as.integer(sapply(private$.seeds, function(s) s$color))
 
       # Pré-calcular matriz de distâncias: n_pixels x n_seeds
       nrows <- image$dim[1]
@@ -109,6 +117,45 @@ seedModelFitter <- R6Class(
         seedColors = private$.seedColors,
         seedDeltas = as.numeric(deltas)
       )
+    },
+
+    seeds_kmeans = function(seeds_info) {
+      all_seeds <- list()
+      
+      for (config in seeds_info) {
+        color <- config$color
+        n_seeds <- config$n_seeds
+        
+        color_coords <- which(private$.image$matrix == color, arr.ind = TRUE)
+        
+        if (nrow(color_coords) < n_seeds) {
+          stop(sprintf("Not enough color %d pixels (%d) for %d seeds. Need at least %d pixels.",
+                       color, nrow(color_coords), n_seeds, n_seeds))
+        }
+        
+        # Média pro caso de uma seed, kmeans pra mais de uma
+        if (n_seeds == 1) {
+          centroid <- colMeans(color_coords)
+          centroids <- matrix(round(centroid, 0), nrow = 1)
+        } else {
+          kmeans_result <- kmeans(color_coords, centers = n_seeds, iter.max = 100)
+          centroids <- round(kmeans_result$centers, 0)
+          
+          # Ordena as seeds
+          distances_from_origin <- rowSums(centroids^2)
+          centroid_order <- order(distances_from_origin)
+          centroids <- centroids[centroid_order, ]
+        }
+        
+        for (i in seq_len(n_seeds)) {
+          all_seeds <- c(all_seeds, list(list(
+            position = as.integer(centroids[i, ]),
+            color = as.integer(color)
+          )))
+        }
+      }
+      
+      return(all_seeds)
     },
 
     # Maximiza a log-PL sobre (alpha > 0, beta, deltas > 0)
