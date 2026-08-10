@@ -17,7 +17,8 @@ seeds_true <- list(
 )
 
 mod <- seedModel$new(alpha = 1.5, beta = 1, seeds = seeds_true, ncolors = 2)
-#img <- mod$sampleImage(dim = c(150, 150), steps = 80)
+img <- mod$sampleImage(dim = c(150, 150), steps = 80)
+Y <- img$matrix + rnorm(prod(dim(img$matrix)), sd = 0.5)
 fit <- fit_ghm(Y, mrfi(1), theta = expand_array(0, "onepar", mrfi(1), 1))
 img <- imageData$new(fit$Z_pred)
 
