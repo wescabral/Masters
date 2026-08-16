@@ -78,7 +78,7 @@ imageData <- R6Class("imageData",
     plot = function(){
       df <- data.frame(x = as.vector(row(private$.dataMatrix)),
                        y = as.vector(col(private$.dataMatrix)),
-                       value = as.factor(as.vector(private$.dataMatrix)))
+                       value = as.vector(private$.dataMatrix))
       
       base_plot <- ggplot(df, aes(x = x, y = y))
 
@@ -90,7 +90,7 @@ imageData <- R6Class("imageData",
       } else {
         base_plot <- base_plot +
           geom_tile(aes(fill = as.factor(value))) +
-          scale_fill_brewer(palette = "Dark2") +
+          scale_fill_brewer(palette = "Set3") +
           labs(fill = NULL)
       }
 
