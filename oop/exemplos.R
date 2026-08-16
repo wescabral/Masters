@@ -1,6 +1,15 @@
+#rtools_path <- "C:/rtools45/usr/bin"
+#Sys.setenv(PATH = paste(rtools_path, Sys.getenv("PATH"), sep = ";"))
+#Sys.which("make")
+
+#rtools_bin <- "C:/rtools45/x86_64-w64-mingw32.static.posix/bin"
+#Sys.setenv(PATH = paste(rtools_bin, Sys.getenv("PATH"), sep = ";"))
+#Sys.which("g++")
+
 library(R6)
 library(Rcpp)
 library(ggplot2)
+library(mrf2d)
 
 source("./imageData.R")
 source("./model.R")
@@ -18,7 +27,11 @@ seeds_true <- list(
 
 mod <- seedModel$new(alpha = 1.5, beta = 1, seeds = seeds_true, ncolors = 2)
 img <- mod$sampleImage(dim = c(150, 150), steps = 80)
+img$plot()
 Y <- img$matrix + rnorm(prod(dim(img$matrix)), sd = 0.5)
+img_cont <- img$setMatrix(Y, continuous = TRUE)
+img_cont$plot()
+
 fit <- fit_ghm(Y, mrfi(1), theta = expand_array(0, "onepar", mrfi(1), 1))
 img <- imageData$new(fit$Z_pred)
 
