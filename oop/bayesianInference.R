@@ -550,6 +550,7 @@ seedBayesianCont <- R6Class(
 
     seeds_kmeans = function(seeds_info) {
       all_seeds <- list()
+      mrf2d::dplot(private$.zMatrix)
       
       for (config in seeds_info) {
         color <- config$color
@@ -603,7 +604,7 @@ seedBayesianCont <- R6Class(
         message("Initializing from maximum pseudo-likelihood estimate...")
         fitter <- seedModelFitter$new(
           image   = private$.zMatrix,
-          seeds_info   = seeds_info,
+          seeds_info   = private$.seeds_info,
           ncolors = private$.ncolors
         )
         est <- fitter$fit()$estimates
@@ -720,25 +721,26 @@ seedBayesianCont <- R6Class(
     },
     update_Z = function(Y, Z = NULL, alpha, beta, deltas = NULL, seeds = NULL,
                              mus, sigmas) {
-      n <- nrow(Y)
+      n1 <- nrow(Y)
+      n2 <- ncol(Y)
       K <- length(mus)
-      if(is.null(Z)) Z <- matrix(0L, nrow = n, ncol = n)
+      if(is.null(Z)) Z <- matrix(sample(0:(K-1), n1*n2, replace = TRUE), nrow = n1, ncol = n2)
       
       .count_neighbors <- function(Zmat, i, j, k) {
         cnt <- 0L
         if(i > 1 && Zmat[i-1, j] == k) cnt <- cnt + 1L
-        if(i < n && Zmat[i+1, j] == k) cnt <- cnt + 1L
+        if(i < n1 && Zmat[i+1, j] == k) cnt <- cnt + 1L
         if(j > 1 && Zmat[i, j-1] == k) cnt <- cnt + 1L
-        if(j < n && Zmat[i, j+1] == k) cnt <- cnt + 1L
+        if(j < n2 && Zmat[i, j+1] == k) cnt <- cnt + 1L
         cnt
       }
       
-      pixels <- sample(seq_len(n * n))
+      pixels <- sample(seq_len(n1 * n2))
       has_seeds <- !is.null(seeds) && nrow(seeds) > 0
       
       for(p in pixels) {
-        i <- ((p - 1) %% n) + 1
-        j <- ((p - 1) %/% n) + 1
+        i <- ((p - 1) %% n1) + 1
+        j <- ((p - 1) %/% n2) + 1
         y_val <- Y[i, j]
         
         log_probs <- numeric(K)

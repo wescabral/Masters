@@ -81,6 +81,9 @@ seedModelFitter <- R6Class(
   "seedModelFitter",
   public = list(
     initialize = function(image, seeds_info, ncolors) {
+      if(is.matrix(image)){
+        image <- imageData$new(image)
+      }
       private$.image    <- image
       private$.seeds    <- self$seeds_kmeans(seeds_info)
       private$.ncolors  <- ncolors
@@ -126,6 +129,7 @@ seedModelFitter <- R6Class(
         color <- config$color
         n_seeds <- config$n_seeds
         
+
         color_coords <- which(private$.image$matrix == color, arr.ind = TRUE)
         
         if (nrow(color_coords) < n_seeds) {
