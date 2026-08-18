@@ -29,11 +29,10 @@ mod <- seedModel$new(alpha = 1.5, beta = 1, seeds = seeds_true, ncolors = 2)
 img <- mod$sampleImage(dim = c(150, 150), steps = 80)
 img$plot()
 Y <- img$matrix + rnorm(prod(dim(img$matrix)), sd = 0.5)
-img_cont <- img$setMatrix(Y, continuous = TRUE)
-img_cont$plot()
+img$setMatrix(Y, continuous = TRUE)
+img$plot()
 
-fit <- fit_ghm(Y, mrfi(1), theta = expand_array(0, "onepar", mrfi(1), 1))
-img <- imageData$new(fit$Z_pred)
+
 
 # 2. Máxima pseudo-likelihood
 
@@ -54,17 +53,22 @@ mle$model$sampleImage(c(150, 150), steps = 80)$plot()
 
 # 3. Inferência Bayesiana via MCMC
 
-prioris <- list(
+priors <- list(
   shape_alpha = 2, rate_alpha = 1, 
   shape_beta  = 5, rate_beta  = 0.5,
   shape_delta = 5, rate_delta = 0.5
 )
+
+sampler_cont <- seedBayesianCont$new(image = img, seeds_info = seeds_info, ncolors = 2, priors = priors)
+sampler_cont
 
 sampler <- seedBayesian$new(image = img, seeds_info = seeds_info, ncolors = 2, priors = prioris)
 sampler   # estrutura e hiperparâmetros
 
 # init = NULL: inicializa automaticamente no MLE
 res <- sampler$run(n_iter = 5000, step_size = 0.1)
+res_cont <- sampler_cont$run(n_iter = 5000, step_size = 0.1) #Erro
+sampler_cont$.__enclos_env__$private$.zMatrix
 
 res$plot_logpl_trace()          # diagnóstico de convergência
 res$plot_image(n_samples = 300, burn_in = 3000) # imagem + 300 círculos (centros variáveis)
