@@ -494,3 +494,319 @@ seedBayesian <- R6Class(
     .pos_y      = NULL
   )
 )
+
+# Sampler Metropolis-Hastings para imagens continuas
+seedBayesianCont <- R6Class(
+  "seedBayesian",
+  public = list(
+    initialize = function(image, seeds_info, ncolors, priors) {
+      private$.image      <- image
+      private$.seeds_info  <- seeds_info
+      private$.seeds       <- NULL
+      private$.ncolors    <- ncolors
+      private$.priors     <- priors
+      private$.seedColors  <- NULL
+      private$.zMatrix     <- NULL
+
+      nrows <- image$dim[1]
+      ncols <- image$dim[2]
+      n     <- nrows * ncols
+      private$.pos_x   <- (seq_len(n) - 1L) %% nrows
+      private$.pos_y   <- (seq_len(n) - 1L) %/% nrows 
+      p <- private$.priors
+      alpha_init <- p$shape_alpha / p$rate_alpha
+      beta_init  <- p$shape_beta  / p$rate_beta
+      
+      img_values <- as.numeric(private$.image$matrix)
+      km1d <- kmeans(img_values, centers = ncolors, iter.max = 100)
+      centers_ord <- order(km1d$centers)
+      mus_0 <- as.numeric(km1d$centers[centers_ord])
+      
+      cl <- km1d$cluster
+      sigmas_0 <- numeric(ncolors)
+      for (k in seq_len(ncolors)) {
+        members <- img_values[cl == which(centers_ord == k)]
+        if (length(members) <= 1) {
+          sigmas_0[k] <- var(img_values, na.rm = TRUE)
+        } else {
+          sigmas_0[k] <- var(members, na.rm = TRUE)
+        }
+        if (is.na(sigmas_0[k]) || sigmas_0[k] <= 0) sigmas_0[k] <- 1e-6
+      }
+
+      private$.zMatrix <- private$update_Z(
+        Y = private$.image$matrix,
+        Z = NULL,
+        alpha = alpha_init,
+        beta  = beta_init,
+        deltas = NULL,
+        seeds = NULL,
+        mus = mus_0,
+        sigmas = sigmas_0
+      )
+      
+      private$ensure_seeds_computed()
+    },
+
+    seeds_kmeans = function(seeds_info) {
+      all_seeds <- list()
+      
+      for (config in seeds_info) {
+        color <- config$color
+        n_seeds <- config$n_seeds
+        
+        z_source <- if (!is.null(private$.zMatrix)) private$.zMatrix else private$.image$matrix
+        color_coords <- which(z_source == color, arr.ind = TRUE)
+
+        if (nrow(color_coords) < n_seeds) {
+          stop(sprintf("Not enough color %d pixels (%d) for %d seeds. Need at least %d pixels.",
+                       color, nrow(color_coords), n_seeds, n_seeds))
+        }
+        
+        # Média pro caso de uma seed, kmeans pra mais de uma
+        if (n_seeds == 1) {
+          centroid <- colMeans(color_coords)
+          centroids <- matrix(round(centroid, 0), nrow = 1)
+        } else {
+          kmeans_result <- kmeans(color_coords, centers = n_seeds, iter.max = 100)
+          centroids <- round(kmeans_result$centers, 0)
+          
+          # Ordena as seeds
+          distances_from_origin <- rowSums(centroids^2)
+          centroid_order <- order(distances_from_origin)
+          centroids <- centroids[centroid_order, ]
+        }
+        
+        for (i in seq_len(n_seeds)) {
+          all_seeds <- c(all_seeds, list(list(
+            position = as.integer(centroids[i, ]),
+            color = as.integer(color)
+          )))
+        }
+      }
+      
+      return(all_seeds)
+    },
+
+    # Roda n_iter iterações MH alternando passo de parâmetros e passo de posições
+    run = function(n_iter, step_size = 0.1, init = NULL) {
+      nseeds     <- length(private$.seeds)
+      n_par_cont <- 2L + nseeds
+      nrows      <- private$.image$dim[1]
+      ncols      <- private$.image$dim[2]
+      n_pos_end  <- n_par_cont + 2L * nseeds
+      n_total    <- n_pos_end + 1L  # +1 para a coluna log_pl
+      p          <- private$.priors
+
+      # inicializar parâmetros contínuos
+      if (is.null(init)) {
+        message("Initializing from maximum pseudo-likelihood estimate...")
+        fitter <- seedModelFitter$new(
+          image   = private$.zMatrix,
+          seeds_info   = seeds_info,
+          ncolors = private$.ncolors
+        )
+        est <- fitter$fit()$estimates
+        est <- est[names(est) != "seeds"]
+        par <- c(est[["alpha"]],
+                 est[["beta"]],
+                 est[paste0("delta", seq_len(nseeds))])
+      } else {
+        par <- c(init$alpha, init$beta, init$deltas)
+      }
+
+      # inicializar posições das seeds
+      seed_pos <- matrix(
+        as.integer(do.call(rbind, lapply(private$.seeds, function(s) s$position))),
+        nrow = nseeds, ncol = 2L
+      )
+
+      # construir distMatrix inicial
+      distMatrix <- matrix(0.0, nrow = length(private$.pos_x), ncol = nseeds)
+      for (s in seq_len(nseeds)) {
+        distMatrix[, s] <- private$compute_dist_col(seed_pos[s, 1L], seed_pos[s, 2L])
+      }
+
+      log_post        <- private$log_posterior(par, distMatrix)
+      kept            <- matrix(NA_real_, nrow = n_iter, ncol = n_total)
+      update_interval <- max(1L, n_iter %/% 200L)
+      pb              <- txtProgressBar(min = 0, max = n_iter, style = 3)
+
+      for (i in seq_len(n_iter)) {
+
+        # Passo A: parâmetros contínuos
+        par_prop <- par + rnorm(n_par_cont, 0, step_size)
+        lp_prop  <- private$log_posterior(par_prop, distMatrix)
+
+        if (log(runif(1L)) < lp_prop - log_post) {
+          par      <- par_prop
+          log_post <- lp_prop
+        }
+
+        # Passo B: posições das seeds
+        for (s in seq_len(nseeds)) {
+          z        <- rnorm(2L)
+          step     <- as.integer(sign(z) * ceiling(abs(z)))
+          pos_prop <- seed_pos[s, ] + step
+
+          # rejeitar propostas fora dos limites (prior uniforme sobre pixels)
+          if (pos_prop[1L] < 1L || pos_prop[1L] > nrows ||
+              pos_prop[2L] < 1L || pos_prop[2L] > ncols) next
+
+          dist_col_prop        <- private$compute_dist_col(pos_prop[1L], pos_prop[2L])
+          distMatrix_prop      <- distMatrix
+          distMatrix_prop[, s] <- dist_col_prop
+          lp_prop              <- private$log_posterior(par, distMatrix_prop)
+
+          if (log(runif(1L)) < lp_prop - log_post) {
+            seed_pos[s, ]   <- pos_prop
+            distMatrix[, s] <- dist_col_prop
+            log_post        <- lp_prop
+          }
+        }
+
+        # registrar estado
+        kept[i, seq_len(n_par_cont)]             <- c(par[1L],
+                                                      par[2L],
+                                                      par[seq(3L, 2L + nseeds)])
+        kept[i, seq(n_par_cont + 1L, n_pos_end)] <- as.numeric(t(seed_pos))
+        kept[i, n_total] <- log_post - (
+          dgamma(par[1L], p$shape_alpha, p$rate_alpha, log = TRUE) +
+          dgamma(par[2L], p$shape_beta,  p$rate_beta,  log = TRUE) +
+          sum(dgamma(par[seq(3L, 2L + nseeds)], p$shape_delta, p$rate_delta, log = TRUE))
+        )
+
+        if (i %% update_interval == 0L) setTxtProgressBar(pb, i)
+      }
+      close(pb)
+
+      colnames(kept) <- c(
+        "alpha", "beta", paste0("delta", seq_len(nseeds)),
+        as.vector(rbind(paste0("x_", seq_len(nseeds)),
+                        paste0("y_", seq_len(nseeds)))),
+        "log_pl"
+      )
+
+      seedBayesianResult$new(
+        chain = kept,
+        seeds = private$.seeds,
+        image = private$.zMatrix
+      )
+    },
+
+    print = function(...) {
+      nseeds <- length(private$.seeds)
+      dim    <- private$.image$dim
+      p      <- private$.priors
+      cat("<seedBayesian>\n")
+      cat(sprintf("  image   : %d x %d  (%d colors)\n", dim[1], dim[2], private$.ncolors))
+      cat(sprintf("  seeds   : %d  (posições são amostradas)\n", nseeds))
+      for (i in seq_len(nseeds)) {
+        s <- private$.seeds[[i]]
+        cat(sprintf("    [%d] posição inicial = (%d, %d),  color = %d\n",
+                    i, s$position[1], s$position[2], s$color))
+      }
+      cat("  priors  :\n")
+      cat(sprintf("    alpha ~ Gamma(%.2f, %.2f)\n", p$shape_alpha, p$rate_alpha))
+      cat(sprintf("    beta  ~ Gamma(%.2f, %.2f)\n", p$shape_beta,  p$rate_beta))
+      cat(sprintf("    delta ~ Gamma(%.2f, %.2f)\n", p$shape_delta, p$rate_delta))
+      cat("    positions  ~ Uniform\n")
+      invisible(self)
+    }
+  ),
+  private = list(
+    compute_dist_col = function(sx, sy) {
+      sqrt((private$.pos_x - (sx - 1L))^2 + (private$.pos_y - (sy - 1L))^2)
+    },
+    update_Z = function(Y, Z = NULL, alpha, beta, deltas = NULL, seeds = NULL,
+                             mus, sigmas) {
+      n <- nrow(Y)
+      K <- length(mus)
+      if(is.null(Z)) Z <- matrix(0L, nrow = n, ncol = n)
+      
+      .count_neighbors <- function(Zmat, i, j, k) {
+        cnt <- 0L
+        if(i > 1 && Zmat[i-1, j] == k) cnt <- cnt + 1L
+        if(i < n && Zmat[i+1, j] == k) cnt <- cnt + 1L
+        if(j > 1 && Zmat[i, j-1] == k) cnt <- cnt + 1L
+        if(j < n && Zmat[i, j+1] == k) cnt <- cnt + 1L
+        cnt
+      }
+      
+      pixels <- sample(seq_len(n * n))
+      has_seeds <- !is.null(seeds) && nrow(seeds) > 0
+      
+      for(p in pixels) {
+        i <- ((p - 1) %% n) + 1
+        j <- ((p - 1) %/% n) + 1
+        y_val <- Y[i, j]
+        
+        log_probs <- numeric(K)
+        
+        for(k in 0:(K - 1)) {
+          n_viz_k <- .count_neighbors(Z, i, j, k)
+          
+          dist_seeds <- 0
+          if(has_seeds) {
+            seeds_k_idx <- which(seeds$cor == k)
+            if(length(seeds_k_idx) > 0) {
+              for(s_idx in seeds_k_idx) {
+                d <- sqrt((i - seeds$x[s_idx])^2 + (j - seeds$y[s_idx])^2)
+                dist_seeds <- dist_seeds + (deltas[s_idx] / (1 + d))
+              }
+            }
+          }
+          
+          eta <- alpha * n_viz_k + (if(k == 0) beta else 0) + dist_seeds
+          log_noise <- dnorm(y_val, mean = mus[k + 1], sd = sqrt(sigmas[k + 1]), log = TRUE)
+          log_probs[k + 1] <- log_noise + eta
+        }
+        
+        max_log <- max(log_probs)
+        probs <- exp(log_probs - max_log)
+        probs <- probs / sum(probs)
+        
+        Z[i, j] <- sample(0:(K - 1), size = 1, prob = probs)
+      }
+      
+      Z
+    },
+    ensure_seeds_computed = function() {
+      if (is.null(private$.seeds) && !is.null(private$.seeds_info)) {
+        private$.seeds <- self$seeds_kmeans(private$.seeds_info)
+        private$.seedColors <- as.integer(sapply(private$.seeds, function(s) s$color))
+      }
+    },
+    log_posterior = function(par, distMatrix) {
+      nseeds <- length(private$.seeds)
+      alpha  <- par[1]
+      beta   <- par[2]
+      deltas <- par[seq(3L, 2L + nseeds)]
+      p      <- private$.priors
+
+      lpl <- computeLogPL(
+        z          = private$.zMatrix,
+        alpha      = alpha,
+        beta       = beta,
+        ncolors    = private$.ncolors,
+        distMatrix = distMatrix,
+        seedColors = private$.seedColors,
+        seedDeltas = deltas
+      )
+
+      lpl +
+        dgamma(par[1], p$shape_alpha, p$rate_alpha, log = TRUE) +
+        dgamma(par[2], p$shape_beta,  p$rate_beta,  log = TRUE) +
+        sum(dgamma(par[seq(3L, 2L + nseeds)], p$shape_delta, p$rate_delta, log = TRUE))
+    },
+    .image      = NULL,
+    .seeds_info = NULL,
+    .seeds      = NULL,
+    .ncolors    = NULL,
+    .priors     = NULL,
+    .seedColors = NULL,
+    .zMatrix    = NULL,
+    .pos_x      = NULL,
+    .pos_y      = NULL
+  )
+)
