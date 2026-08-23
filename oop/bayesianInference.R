@@ -691,7 +691,7 @@ seedBayesianCont <- R6Class(
       seedBayesianResult$new(
         chain = kept,
         seeds = private$.seeds,
-        image = private$.zMatrix
+        image = imageData$new(private$.zMatrix)
       )
     },
 
@@ -772,6 +772,35 @@ seedBayesianCont <- R6Class(
       }
       
       Z
+    },
+    update_noise_params <- function(Y, Z, mus, sigmas, priors) {
+      n_colors <- length(mus)
+      
+      new_mus <- mus
+      new_sigmas <- sigmas
+      
+      for(k in 1:n_colors) {
+        y_k <- Y[Z == (k-1)]
+        n_k <- length(y_k)
+        
+        if(n_k == 0) next 
+        
+        # Atualização do mu
+        num_m <- (priors$m[k] / priors$tau[k]) + (sum(y_k) / new_sigmas[k])
+        den_m <- (1 / priors$tau[k]) + (n_k / new_sigmas[k])
+        m <- num_m / den_m
+        tau <- 1 / den_m
+                
+        new_mus[k] <- rnorm(1, mean = m, sd = sqrt(tau))
+        
+        # Atualização do sigma
+        a <- priors$a[k] + (n_k / 2)
+        b <- priors$b[k] + (sum((y_k - new_mus[k])^2) / 2)
+        
+        new_sigmas[k] <- 1 / rgamma(1, shape = a, rate = b)
+      }
+      
+      return(list(mus = new_mus, sigmas = new_sigmas))
     },
     ensure_seeds_computed = function() {
       if (is.null(private$.seeds) && !is.null(private$.seeds_info)) {

@@ -59,16 +59,11 @@ priors <- list(
   shape_delta = 5, rate_delta = 0.5
 )
 
-sampler_cont <- seedBayesianCont$new(image = img, seeds_info = seeds_info, ncolors = 2, priors = priors)
-sampler_cont
-
-sampler <- seedBayesian$new(image = img, seeds_info = seeds_info, ncolors = 2, priors = prioris)
+sampler <- seedBayesianCont$new(image = img, seeds_info = seeds_info, ncolors = 2, priors = priors)
 sampler   # estrutura e hiperparâmetros
 
 # init = NULL: inicializa automaticamente no MLE
 res <- sampler$run(n_iter = 5000, step_size = 0.1)
-res_cont <- sampler_cont$run(n_iter = 5000, step_size = 0.1) #Erro
-sampler_cont$.__enclos_env__$private$.zMatrix
 
 res$plot_logpl_trace()          # diagnóstico de convergência
 res$plot_image(n_samples = 300, burn_in = 3000) # imagem + 300 círculos (centros variáveis)
