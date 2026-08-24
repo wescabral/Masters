@@ -507,6 +507,8 @@ seedBayesianCont <- R6Class(
       private$.priors     <- priors
       private$.seedColors  <- NULL
       private$.zMatrix     <- NULL
+      private$.mus         <- NULL
+      private$.sigmas      <- NULL
 
       nrows <- image$dim[1]
       ncols <- image$dim[2]
@@ -545,6 +547,8 @@ seedBayesianCont <- R6Class(
         sigmas = sigmas_0
       )
       
+      private$.mus <- mus_0
+      private$.sigmas <- sigmas_0
       private$ensure_seeds_computed()
     },
 
@@ -677,6 +681,38 @@ seedBayesianCont <- R6Class(
           sum(dgamma(par[seq(3L, 2L + nseeds)], p$shape_delta, p$rate_delta, log = TRUE))
         )
 
+        # Atualizar Z, mus e sigmas ao final de cada passo, MENOS na última iteração
+        if (i < n_iter) {
+          seeds_updated <- data.frame(
+            x = seed_pos[, 1L],
+            y = seed_pos[, 2L],
+            cor = sapply(private$.seeds, function(s) s$color)
+          )
+
+          # Atualizar Z
+          private$.zMatrix <- private$update_Z(
+            Y = private$.image$matrix,
+            Z = private$.zMatrix,
+            alpha = par[1L],
+            beta = par[2L],
+            deltas = par[seq(3L, 2L + nseeds)],
+            seeds = seeds_updated,
+            mus = private$.mus,
+            sigmas = private$.sigmas
+          )
+          
+          # Atualizar mus e sigmas
+          noise_params <- private$update_noise_params(
+            Y = private$.image$matrix,
+            Z = private$.zMatrix,
+            mus = private$.mus,
+            sigmas = private$.sigmas,
+            priors = p
+          )
+          private$.mus <- noise_params$mus
+          private$.sigmas <- noise_params$sigmas
+        }
+
         if (i %% update_interval == 0L) setTxtProgressBar(pb, i)
       }
       close(pb)
@@ -773,7 +809,7 @@ seedBayesianCont <- R6Class(
       
       Z
     },
-    update_noise_params <- function(Y, Z, mus, sigmas, priors) {
+    update_noise_params = function(Y, Z, mus, sigmas, priors) {
       n_colors <- length(mus)
       
       new_mus <- mus
@@ -837,6 +873,8 @@ seedBayesianCont <- R6Class(
     .priors     = NULL,
     .seedColors = NULL,
     .zMatrix    = NULL,
+    .mus        = NULL,
+    .sigmas     = NULL,
     .pos_x      = NULL,
     .pos_y      = NULL
   )

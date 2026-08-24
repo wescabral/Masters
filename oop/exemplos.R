@@ -56,7 +56,9 @@ mle$model$sampleImage(c(150, 150), steps = 80)$plot()
 priors <- list(
   shape_alpha = 2, rate_alpha = 1, 
   shape_beta  = 5, rate_beta  = 0.5,
-  shape_delta = 5, rate_delta = 0.5
+  shape_delta = 5, rate_delta = 0.5,
+  m = c(0, 0), tau = c(1, 1),
+  a = c(1, 1), b = c(2, 2)
 )
 
 sampler <- seedBayesianCont$new(image = img, seeds_info = seeds_info, ncolors = 2, priors = priors)
@@ -69,7 +71,7 @@ res$plot_logpl_trace()          # diagnóstico de convergência
 res$plot_image(n_samples = 300, burn_in = 3000) # imagem + 300 círculos (centros variáveis)
 
 # Burn-in manual
-res$plot_traces(burn_in = 000)
+res$plot_traces(burn_in = 3000)
 res$plot_densities(burn_in = 3000)
 print(res, burn_in = 3000)
 res$posterior_mean(burn_in = 3000)
