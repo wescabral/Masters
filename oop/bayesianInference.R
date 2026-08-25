@@ -636,6 +636,7 @@ seedBayesianCont <- R6Class(
       kept            <- matrix(NA_real_, nrow = n_iter, ncol = n_total)
       update_interval <- max(1L, n_iter %/% 200L)
       pb              <- txtProgressBar(min = 0, max = n_iter, style = 3)
+      emission <- list()
 
       for (i in seq_len(n_iter)) {
 
@@ -711,6 +712,8 @@ seedBayesianCont <- R6Class(
           )
           private$.mus <- noise_params$mus
           private$.sigmas <- noise_params$sigmas
+          
+          emission <- c(emission, list(mu = private$.mus, sigmas = private$.sigmas))
         }
 
         if (i %% update_interval == 0L) setTxtProgressBar(pb, i)
@@ -723,6 +726,8 @@ seedBayesianCont <- R6Class(
                         paste0("y_", seq_len(nseeds)))),
         "log_pl"
       )
+      
+      print(emission)
 
       seedBayesianResult$new(
         chain = kept,
@@ -761,53 +766,18 @@ seedBayesianCont <- R6Class(
       n2 <- ncol(Y)
       K <- length(mus)
       if(is.null(Z)) Z <- matrix(sample(0:(K-1), n1*n2, replace = TRUE), nrow = n1, ncol = n2)
+      if(is.null(deltas)) deltas <- 0.0
+      if(is.null(seeds)) seeds <- list(list(position = c(1,1), color = 0))
       
-      .count_neighbors <- function(Zmat, i, j, k) {
-        cnt <- 0L
-        if(i > 1 && Zmat[i-1, j] == k) cnt <- cnt + 1L
-        if(i < n1 && Zmat[i+1, j] == k) cnt <- cnt + 1L
-        if(j > 1 && Zmat[i, j-1] == k) cnt <- cnt + 1L
-        if(j < n2 && Zmat[i, j+1] == k) cnt <- cnt + 1L
-        cnt
+      if(is.data.frame(seeds)){
+        seeds_pos <- as.matrix(seeds[,1:2], drop = FALSE)
+        seed_colors <- as.vector(seeds[,3])
+      } else {
+        seeds_pos <- lapply(seeds, \(x) x[["position"]]) |> simplify2array() |> t()
+        seed_colors <- sapply(seeds, \(x) x[["color"]])
       }
       
-      pixels <- sample(seq_len(n1 * n2))
-      has_seeds <- !is.null(seeds) && nrow(seeds) > 0
-      
-      for(p in pixels) {
-        i <- ((p - 1) %% n1) + 1
-        j <- ((p - 1) %/% n2) + 1
-        y_val <- Y[i, j]
-        
-        log_probs <- numeric(K)
-        
-        for(k in 0:(K - 1)) {
-          n_viz_k <- .count_neighbors(Z, i, j, k)
-          
-          dist_seeds <- 0
-          if(has_seeds) {
-            seeds_k_idx <- which(seeds$cor == k)
-            if(length(seeds_k_idx) > 0) {
-              for(s_idx in seeds_k_idx) {
-                d <- sqrt((i - seeds$x[s_idx])^2 + (j - seeds$y[s_idx])^2)
-                dist_seeds <- dist_seeds + (deltas[s_idx] / (1 + d))
-              }
-            }
-          }
-          
-          eta <- alpha * n_viz_k + (if(k == 0) beta else 0) + dist_seeds
-          log_noise <- dnorm(y_val, mean = mus[k + 1], sd = sqrt(sigmas[k + 1]), log = TRUE)
-          log_probs[k + 1] <- log_noise + eta
-        }
-        
-        max_log <- max(log_probs)
-        probs <- exp(log_probs - max_log)
-        probs <- probs / sum(probs)
-        
-        Z[i, j] <- sample(0:(K - 1), size = 1, prob = probs)
-      }
-      
-      Z
+      conditionalGibbsSampler(Y, Z, alpha, beta, K, seeds = seeds_pos, seedColors = seed_colors, seedDeltas = deltas, mus = mus, sigmas = sigmas, steps = 1)
     },
     update_noise_params = function(Y, Z, mus, sigmas, priors) {
       n_colors <- length(mus)

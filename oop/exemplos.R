@@ -28,7 +28,7 @@ seeds_true <- list(
 mod <- seedModel$new(alpha = 1.5, beta = 1, seeds = seeds_true, ncolors = 2)
 img <- mod$sampleImage(dim = c(150, 150), steps = 80)
 img$plot()
-Y <- img$matrix + rnorm(prod(dim(img$matrix)), sd = 0.5)
+Y <- img$matrix + rnorm(prod(dim(img$matrix)), sd = 0.1)
 img$setMatrix(Y, continuous = TRUE)
 img$plot()
 
@@ -65,15 +65,15 @@ sampler <- seedBayesianCont$new(image = img, seeds_info = seeds_info, ncolors = 
 sampler   # estrutura e hiperparâmetros
 
 # init = NULL: inicializa automaticamente no MLE
-res <- sampler$run(n_iter = 5000, step_size = 0.1)
+res <- sampler$run(n_iter = 2000, step_size = 0.01)
 
 res$plot_logpl_trace()          # diagnóstico de convergência
-res$plot_image(n_samples = 300, burn_in = 3000) # imagem + 300 círculos (centros variáveis)
+res$plot_image(n_samples = 300, burn_in = 0000) # imagem + 300 círculos (centros variáveis)
 
 # Burn-in manual
-res$plot_traces(burn_in = 3000)
-res$plot_densities(burn_in = 3000)
-print(res, burn_in = 3000)
-res$posterior_mean(burn_in = 3000)
-res$credible_interval(level = 0.95, burn_in = 3000)
+res$plot_traces(burn_in = 000)
+res$plot_densities(burn_in = 000)
+print(res, burn_in = 000)
+res$posterior_mean(burn_in = 000)
+res$credible_interval(level = 0.95, burn_in = 0000)
 res$plot_positions()
