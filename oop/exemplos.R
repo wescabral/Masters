@@ -21,11 +21,11 @@ source("./bayesianInference.R")
 # 1. Modelo verdadeiro e imagem simulada
 
 seeds_true <- list(
-  list(position = c(50, 50),   color = 1, delta = 20),
-  list(position = c(100, 100), color = 1, delta = 20)
+  list(position = c(50, 50),   color = 1, delta = 20000),
+  list(position = c(100, 100), color = 1, delta = 20000)
 )
 
-mod <- seedModel$new(alpha = 1.5, beta = 1, seeds = seeds_true, ncolors = 2)
+mod <- seedModel$new(alpha = 0, beta = 1000, seeds = seeds_true, ncolors = 2)
 img <- mod$sampleImage(dim = c(150, 150), steps = 80)
 img$plot()
 Y <- img$matrix + rnorm(prod(dim(img$matrix)), sd = 0.1)
@@ -55,17 +55,17 @@ mle$model$sampleImage(c(150, 150), steps = 80)$plot()
 
 priors <- list(
   shape_alpha = 2, rate_alpha = 1, 
-  shape_beta  = 5, rate_beta  = 0.5,
+  shape_beta  = 10, rate_beta  = 0.5,
   shape_delta = 5, rate_delta = 0.5,
   m = c(0, 0), tau = c(1, 1),
-  a = c(1, 1), b = c(2, 2)
+  a = c(0.1, 0.1), b = c(0.1, 0.1)
 )
 
 sampler <- seedBayesianCont$new(image = img, seeds_info = seeds_info, ncolors = 2, priors = priors)
-sampler   # estrutura e hiperparâmetros
+sampler$plotZ()   # estrutura e hiperparâmetros
 
 # init = NULL: inicializa automaticamente no MLE
-res <- sampler$run(n_iter = 2000, step_size = 0.01)
+res <- sampler$run(n_iter = 2000, step_size = 0.01, init = list(alpha = 2, beta = 1, deltas = c(40, 40)))
 
 res$plot_logpl_trace()          # diagnóstico de convergência
 res$plot_image(n_samples = 300, burn_in = 0000) # imagem + 300 círculos (centros variáveis)
@@ -77,3 +77,4 @@ print(res, burn_in = 000)
 res$posterior_mean(burn_in = 000)
 res$credible_interval(level = 0.95, burn_in = 0000)
 res$plot_positions()
+

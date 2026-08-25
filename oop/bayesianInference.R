@@ -547,6 +547,7 @@ seedBayesianCont <- R6Class(
         sigmas = sigmas_0
       )
       
+      
       private$.mus <- mus_0
       private$.sigmas <- sigmas_0
       private$ensure_seeds_computed()
@@ -591,6 +592,10 @@ seedBayesianCont <- R6Class(
       }
       
       return(all_seeds)
+    },
+    
+    plotZ = function(){
+      mrf2d::dplot(private$.zMatrix)
     },
 
     # Roda n_iter iterações MH alternando passo de parâmetros e passo de posições
