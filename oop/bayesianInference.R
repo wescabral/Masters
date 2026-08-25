@@ -712,8 +712,9 @@ seedBayesianCont <- R6Class(
           )
           private$.mus <- noise_params$mus
           private$.sigmas <- noise_params$sigmas
-          
           emission <- c(emission, list(mu = private$.mus, sigmas = private$.sigmas))
+
+          log_post <- private$log_posterior(par, distMatrix)
         }
 
         if (i %% update_interval == 0L) setTxtProgressBar(pb, i)
