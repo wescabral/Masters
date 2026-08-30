@@ -1,0 +1,178 @@
+---
+title: "Markov Random Fields with Geographic Seeds"
+subtitle: "Bayesian Estimation on Hierarchical Hidden Field Model"
+author:
+  - "Wesley Cabral Alves"
+institute: "University of Campinas"
+date: today
+format:
+  beamer:
+    theme: madrid
+    colortheme: default
+    fonttheme: default
+    pdf-engine: pdflatex
+    slide-level: 3
+    toc: false
+    number-sections: false
+    keep-tex: true
+    beamer-headings: true
+    header-includes:
+      - \AtBeginSubsection{}
+      - \usepackage{amsfonts}
+      - \setbeamertemplate{section page}{
+          \begin{centering}
+              \begin{beamercolorbox}[sep=12pt,center,shadow=true,rounded=true]{section title}
+              \usebeamerfont{section title}\insertsection\par
+              \end{beamercolorbox}
+          \end{centering}}
+      - \setbeamertemplate{subsection page}{}
+      - \setbeamertemplate{headline}{
+          \begin{beamercolorbox}[ht=2.5ex,dp=1.125ex,leftskip=.3cm,rightskip=.3cm]{section in head/foot}
+            \usebeamerfont{section in head/foot}\insertsectionhead
+            \hfill
+            \usebeamerfont{subsection in head/foot}\insertsubsectionhead
+          \end{beamercolorbox}}
+---
+
+# 1. Introduction
+
+## Spatial Motivation
+
+### The Potts Model
+* Spatial models on regular lattices (pixels) often employ **Markov Random Fields (MRF)**.
+* The **Potts Model** is the classical standard for capturing local neighborhood dependence.
+
+
+### The Geographic Limitation
+* Many real images and textures possess geographic patterns we call **"seeds"** that may attract or repel colors.
+* **Our Proposal:** Incorporate geographic seeds that exert radial influence on the classes.
+* **Objective:** Propose a reparameterized model that describe the inclusion of centroids/seeds, and validate its inference under a hidden model.
+
+# 2. The Proposal
+
+## Mathematical Formulation
+
+### Potts as is
+* **Energy Function:** For the traditional Potts Model, we define a spatial field $Z$ where the local probability of pixel $i$ taking class $k$ is proportional to $exp(\eta_i(k))$:
+  $$\eta_i(k) = \alpha \sum_{j \in N(i)} \mathbb{1}(Z_j = k) + \beta \mathbb{1}(k = 0)$$
+* **Parameters Meaning:**
+  * **$N(i)$:** Pixel $i$ neighbors.
+  * **$\alpha$ (Uniformity):** Local attraction between neighboring pixels (smoothing).
+  * **$\beta$ (Global Abundance):** Force favoring/penalizing the background (class $0$).
+
+### Potts Reparameterized with Seeds
+* **Enhanced Local Energy Function:** To address the isotropic limitation of the Potts model, we introduce a few elements to handle
+the geographic centrality bias in our local energy funtion:
+  $$\eta_i(k) = \alpha \sum_{j \in N(i)} 1(Z_j = k) + \beta 1(k = 0) + \sum_s \frac{\delta_s}{1 + d(i, s)} 1(c_s = k)$$
+* **Parameters Meaning:**
+  * **$\alpha$ (Uniformity):** Local attraction between neighboring pixels (smoothing).
+  * **$\beta$ (Global Abundance):** Force favoring/penalizing the background (class $0$).
+  * **$\delta_s$ (Centrality):** Radial attraction/repulsion of the seed $s$.
+  * **$d(i, s)$:** Distance between pixel $i$ and seed $s$.
+  * **$c_s$:** Class/color related to the seed.
+
+
+### Potts Reparameterized with Seeds
+* **Enhanced Local Energy Function:**
+  $$\eta_i(k) = \alpha \sum_{j \in N(i)} 1(Z_j = k) + \beta 1(k = 0) + \sum_s \frac{\delta_s}{1 + d(i, s)} 1(c_s = k)$$
+
+* **Enhanced Global Energy Function:** 
+  $$U(\omega) = \alpha  \sum_{\{i,j\} \in E} \sum_{k \in S} s_{i,k}s_{j,k} + \beta 1(k = 0) + \sum_s \frac{\delta_s}{1 + d(i, s)} 1(c_s = k)$$
+
+### The Threshold of the "Area of Influence"
+* **Equilibrium of Forces:** The local seed attraction competes against the global abundance of the background class.
+* **Null Boundary:** Under our model, ignoring neighborhood smoothing, they cancel out when:
+  $$\eta_i(0)= \eta_i(k) \implies d_{i,s} = \frac{\delta_s}{\beta}-1$$
+* **Geographic Transition:**
+  * **Within radius $d_i$:** The seed attraction dominates the local probability.
+  * **Beyond radius $d_i$:** The class 0 dominates.
+  * **Smoothing effect:** Depending on $\alpha$ value, pixels can be affected more by its naighbors than by the radius rule.
+
+
+### The Theoretical Bottleneck: Intractable Likelihood
+* **The Gibbs Measure:** The global probability of an image configuration $\omega$ is governed by:
+  $$P(\omega) = \frac{1}{Z(\theta)} \exp\{-U(\omega)\}$$
+* **The Computational Bottleneck:** The term $Z(\theta)$ is the **normalizing constant** (partition function) summed over all lattice configurations $\Omega$:
+  $$Z(\theta) = \sum_{\omega \in \Omega} \exp\{-U(\omega)\}$$
+* For a small $50 \times 50$ grid and $K = 3$ colors, this requires $3^{2500}$ terms, rendering standard Maximum Likelihood impossible.
+
+# 3. Hidden & Hierarchical Models
+
+## Hidden Markov Fields
+
+### The Major Evolution: The Hidden Model (HMRF)
+* **The Latent Field:** In segmentation practice, the label field $Z$ (the true texture) is **latent/hidden**.
+* **Observed Intensities:** We only observe the noisy, continuous intensities $Y$.
+* **Observation Equation (Emission):** Conditionally on the latent label $Z_i = k$, the intensity $Y_i$ is Normal:
+  $$Y_i \mid Z_i = k \sim N(\mu_k, \sigma^2_k)$$
+* **Normal Mixture:** Marginalizing over $Z_i$, $Y_i$ forms a spatial mixture of Gaussians:
+  $$f(y_i) = \sum_{k=0}^{K-1} P(Z_i = k) \phi(y_i; \mu_k, \sigma^2_k)$$
+
+## Hierarchical Framework
+
+### Hierarchical Bayesian Formulation
+* **Full Joint Distribution:** Treating $Z$, parameters $\theta$, and seed coordinates $S$ as random variables:
+  $$
+  \begin{aligned}
+  P(Y, Z, \theta) = P(Y \mid Z, \mu, \sigma^2) P(Z \mid \alpha, \beta, \delta, S) \times  \\
+  P(\alpha)P(\beta)\prod_{j=1}^M P(s_j)P(\delta_j)
+  \prod_{k=0}^{K-1} P(\mu_k)P(\sigma^2_k)
+  \end{aligned}
+  $$
+
+* **Prior Distributions:**
+  * **Field (Gamma):** $\alpha \sim \text{Gamma}(a_\alpha, b_\alpha)$, $\beta \sim \text{Gamma}(a_\beta, b_\beta)$.
+  * **Means (Normal):** $\mu_k \sim N(m_k, \tau^2_k)$ (anchored via K-means).
+  * **Variances (Inverse-Gamma):** $\sigma^2_k \sim IG(a_\sigma, b_\sigma)$.
+  * **Geography:** Seed position $s_j \sim \text{Unif}(L)$ discretized on the grid.
+
+# 3. Estimation & Algorithms
+
+## MCMC Estimation
+
+### The Metropolis-within-Gibbs Algorithm
+1. **Step C (Gibbs - Latent Field):** Sample $Z_i^{(t)}$ conditioned on its neighbors and the observed intensity $Y_i$.
+2. **Step D (Gibbs - Noise):** Sample new $(\mu_k, \sigma^2_k)$ directly from closed-form analytical distributions.
+3. **Step A (Metropolis-Hastings - Field):** Propose $(\alpha, \beta, \delta)$ via a random walk, evaluated over the **Pseudolikelihood (PL)** or user-chosen prioris.
+4. **Step B (Metropolis-Hastings - Seeds):** Propose discrete 1-pixel steps for the coordinates $(x,y)$ of the seeds.
+* **The Local Gibbs Trick:** Global normalizing constant $Z(\theta)$ cancels out locally.
+  $$P(Z_i = k \mid Y_i, Z_{-i}, \theta) = \frac{\phi(y_i; \mu_k, \sigma^2_k) \exp\{\eta_i(k)\}}{\sum_{\ell} \phi(y_i; \mu_\ell, \sigma^2_\ell) \exp\{\eta_i(\ell)\}}$$
+
+### Full Conditionals and Conjugacy
+* **Updated Posterior Mean ($\mu_k$):** The full conditional under conjugate priors is a Normal:
+  $$\mu_{\text{post}} = \frac{\frac{m_k}{\tau^2_k} + \frac{\sum_{i: Z_i=k} y_i}{\sigma^2_k}}{\frac{1}{\tau^2_k} + \frac{n_k}{\sigma^2_k}}$$
+* **Updated Posterior Variance ($\sigma^2_k$):** Follows an Inverse-Gamma:
+  $$a_{\text{post}} = a_\sigma + \frac{n_k}{2}$$
+  $$b_{\text{post}} = b_\sigma + \frac{1}{2} \sum_{i: Z_i=k} (y_i - \mu_k)^2$$
+
+## Computational Efficiency
+
+### Code Engineering & Stability Challenges
+* **Log-Sum-Exp Trick:** To prevent catastrophic underflow/overflow:
+  $$\log \sum_j \exp(x_j) = x_{\max} + \log \sum_j \exp(x_j - x_{\max})$$
+* **Preventing Label Switching:** We enforce strict ordering of the means ($\mu_0 < \mu_1 < \dots$) at each Gibbs iteration.
+* **Rcpp for Real-World Grids:** Recreated the local neighborhood and distance calculations in **C++ via Rcpp** to make iterations highly efficient.
+
+# 4. Results & Application
+
+## Numerical Results
+
+### Simulation Results
+* **Parameter Recovery:** MWG algorithm shows rapid convergence after a short burn-in period.
+* **Credible Intervals:** True spatial and geographic parameters are captured within 90% Bayesian credible intervals (5% and 95% quantiles).
+* **Geographic Trajectory:** Seed positions walk stochastically and converge exactly on their true coordinates.
+
+### Image Segmentation Application
+* **Texture Segmentation:** Without spatial priors, simple mixtures produce extremely noisy results.
+* **Our Model:** The latent field with seeds creates **smooth regions**, preserving concentric attraction near seeds.
+* **Visual Comparison:**
+  1. Noisy Image $Y$ $\rightarrow$ heavy noise.
+  2. Our Model $\rightarrow$ clean, mathematically consistent shapes.
+
+## Conclusion
+
+### Conclusion and Next Steps
+* **Key Conclusions:** The MWG pipeline makes inference in geographically complex HMRFs viable and robust.
+* **Efficiency:** Estimation via Pseudoposterior balances computational cost and statistical precision.
+* **Future Work:**
+  * IDK
