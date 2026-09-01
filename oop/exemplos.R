@@ -37,7 +37,7 @@ img$plot()
 # 2. Máxima pseudo-likelihood
 
 seeds_info <- list(
-  list(color = 1, n_seeds = 2)
+  list(color = 1, n_seeds = 3)
 )
 
 fitter <- seedModelFitter$new(image = img, seeds_info = seeds_info, ncolors = 2)
@@ -57,18 +57,18 @@ priors <- list(
   shape_alpha = 2, rate_alpha = 1, 
   shape_beta  = 10, rate_beta  = 0.5,
   shape_delta = 5, rate_delta = 0.5,
-  m = c(0, 0), tau = c(1, 1),
-  a = c(0.1, 0.1), b = c(0.1, 0.1)
+  m = c(0, 0, 0), tau = c(0.001, 0.001, 0.001),
+  a = c(10, 10, 10), b = c(10, 10, 10)
 )
 
 sampler <- seedBayesianCont$new(image = img, seeds_info = seeds_info, ncolors = 2, priors = priors)
 sampler$plotZ()   # estrutura e hiperparâmetros
 
 # init = NULL: inicializa automaticamente no MLE
-res <- sampler$run(n_iter = 2000, step_size = 0.01, init = list(alpha = 2, beta = 1, deltas = c(40, 40)))
+res <- sampler$run(n_iter = 5000, step_size = 0.01, init = list(alpha = 1, beta = 2, deltas = c(20, 20, 20)))
 
 res$plot_logpl_trace()          # diagnóstico de convergência
-res$plot_image(n_samples = 300, burn_in = 0000) # imagem + 300 círculos (centros variáveis)
+res$plot_image(n_samples = 300, burn_in = 4000) # imagem + 300 círculos (centros variáveis)
 
 # Burn-in manual
 res$plot_traces(burn_in = 000)
