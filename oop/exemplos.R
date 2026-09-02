@@ -57,8 +57,8 @@ priors <- list(
   shape_alpha = 2, rate_alpha = 1, 
   shape_beta  = 10, rate_beta  = 0.5,
   shape_delta = 5, rate_delta = 0.5,
-  m = c(0, 0, 0), tau = c(0.001, 0.001, 0.001),
-  a = c(10, 10, 10), b = c(10, 10, 10)
+  m = 0, tau = 0.001,
+  a = 10, b = 10
 )
 
 sampler <- seedBayesianCont$new(image = img, seeds_info = seeds_info, ncolors = 2, priors = priors)

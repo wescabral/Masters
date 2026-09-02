@@ -4,17 +4,21 @@ sourceCpp("./pseudoLikelihood.cpp")
 seedBayesianResult <- R6Class(
   "seedBayesianResult",
   public = list(
-    initialize = function(chain, seeds, image) {
-      private$.chain  <- chain
-      private$.seeds  <- seeds
-      private$.image  <- image
+    initialize = function(chain, seeds, image, ncolors = NULL, image_continuous = NULL) {
+      private$.chain            <- chain
+      private$.seeds            <- seeds
+      private$.image            <- image
+      private$.image_continuous <- image_continuous
       nseeds <- length(seeds)
-      private$.param_names <- c("alpha", "beta", paste0("delta", seq_len(nseeds)))
+      mh_names    <- c("alpha", "beta", paste0("delta", seq_len(nseeds)))
+      noise_names <- if (!is.null(ncolors)) c(paste0("mu", seq_len(ncolors)), "sigma2") else character(0)
+      private$.mh_param_names <- mh_names
+      private$.param_names    <- c(mh_names, noise_names)
       private$.pos_names   <- c(rbind(paste0("x_", seq_len(nseeds)),
                                       paste0("y_", seq_len(nseeds))))
       if (nrow(chain) > 1L) {
-        par_diff <- diff(chain[, private$.param_names, drop = FALSE])
-        pos_diff <- diff(chain[, private$.pos_names,   drop = FALSE])
+        par_diff <- diff(chain[, private$.mh_param_names, drop = FALSE])
+        pos_diff <- diff(chain[, private$.pos_names,      drop = FALSE])
         private$.accept_rate_param <- mean(rowSums(par_diff != 0) > 0)
         private$.accept_rate_pos   <- mean(rowSums(pos_diff != 0) > 0)
       } else {
@@ -129,6 +133,8 @@ seedBayesianResult <- R6Class(
       idx    <- sample(seq_len(n_kept), min(n_samples, n_kept))
       sub    <- chain[idx, , drop = FALSE]
       nseeds <- length(private$.seeds)
+      nrows  <- private$.image$dim[1]
+      ncols  <- private$.image$dim[2]
       theta  <- seq(0, 2 * pi, length.out = 100)
 
       circle_rows <- list()
@@ -148,14 +154,17 @@ seedBayesianResult <- R6Class(
         }
       }
 
-      p <- private$.image$plot() + coord_fixed()
+      p <- private$.image$plot() +
+        coord_fixed(xlim   = c(0.5, nrows + 0.5),
+                    ylim   = c(0.5, ncols + 0.5),
+                    expand = FALSE)
 
       if (length(circle_rows) > 0) {
         circle_df <- do.call(rbind, circle_rows)
         p <- p + geom_path(
           data        = circle_df,
           aes(x = x, y = y, group = group),
-          color       = "white",
+          color       = "red",
           alpha       = 0.12,
           linewidth   = 0.3,
           inherit.aes = FALSE
@@ -199,19 +208,32 @@ seedBayesianResult <- R6Class(
         seed = factor(paste0("seed ", seq_len(nseeds)))
       )
 
-      ggplot(pos_df, aes(x = x, y = y)) +
-        geom_bin2d(binwidth = 1) +
+      # imagem contínua embaixo (quando disponível) + heatmap via alpha, pois "fill" já mapeia o valor do pixel
+      if (!is.null(private$.image_continuous)) {
+        p <- private$.image_continuous$plot() +
+          geom_bin2d(data = pos_df, aes(x = x, y = y, alpha = after_stat(count), fill = NULL),
+                     binwidth = 1, fill = "red", inherit.aes = FALSE) +
+          scale_alpha_continuous(range = c(0.15, 0.9), name = "Count") +
+          coord_fixed(xlim   = c(0.5, nrows + 0.5),
+                      ylim   = c(0.5, ncols + 0.5),
+                      expand = FALSE)
+      } else {
+        p <- ggplot(pos_df, aes(x = x, y = y)) +
+          geom_bin2d(binwidth = 1) +
+          annotate("rect",
+                   xmin = 0.5, xmax = nrows + 0.5,
+                   ymin = 0.5, ymax = ncols + 0.5,
+                   fill = NA, color = "grey50", linetype = "dashed") +
+          scale_fill_viridis_c(option = "magma") +
+          coord_fixed()
+      }
+
+      p +
         geom_point(data = init_df, aes(x = x, y = y),
                    shape = 3, size = 3, color = "firebrick", stroke = 1,
                    inherit.aes = FALSE) +
-        annotate("rect",
-                 xmin = 0.5, xmax = nrows + 0.5,
-                 ymin = 0.5, ymax = ncols + 0.5,
-                 fill = NA, color = "grey50", linetype = "dashed") +
-        scale_fill_viridis_c(option = "magma") +
-        coord_fixed() +
-        facet_wrap(~seed) +
-        labs(x = "x", y = "y", fill = "Count",
+        #facet_wrap(~seed) +
+        labs(x = "x", y = "y",
              title = "Posterior: seed positions") +
         theme_bw(base_size = 11) +
         theme(strip.text = element_text(face = "bold"))
@@ -235,6 +257,7 @@ seedBayesianResult <- R6Class(
   active = list(
     chain             = function() private$.chain,
     image             = function() private$.image,
+    image_continuous  = function() private$.image_continuous,
     seeds             = function() private$.seeds,
     accept_rate_param = function() private$.accept_rate_param,
     accept_rate_pos   = function() private$.accept_rate_pos
@@ -266,9 +289,11 @@ seedBayesianResult <- R6Class(
     .chain             = NULL,
     .seeds             = NULL,
     .image             = NULL,
+    .image_continuous  = NULL,
     .accept_rate_param = NULL,
     .accept_rate_pos   = NULL,
     .param_names       = NULL,
+    .mh_param_names    = NULL,
     .pos_names         = NULL
   )
 )
@@ -508,7 +533,7 @@ seedBayesianCont <- R6Class(
       private$.seedColors  <- NULL
       private$.zMatrix     <- NULL
       private$.mus         <- NULL
-      private$.sigmas      <- NULL
+      private$.sigma2      <- NULL
 
       nrows <- image$dim[1]
       ncols <- image$dim[2]
@@ -525,37 +550,30 @@ seedBayesianCont <- R6Class(
       mus_0 <- as.numeric(km1d$centers[centers_ord])
       
       cl <- km1d$cluster
-      sigmas_0 <- numeric(ncolors)
-      for (k in seq_len(ncolors)) {
-        members <- img_values[cl == which(centers_ord == k)]
-        if (length(members) <= 1) {
-          sigmas_0[k] <- var(img_values, na.rm = TRUE)
-        } else {
-          sigmas_0[k] <- var(members, na.rm = TRUE)
-        }
-        if (is.na(sigmas_0[k]) || sigmas_0[k] <= 0) sigmas_0[k] <- 1e-6
-      }
+      resid    <- img_values - mus_0[match(cl, centers_ord)]
+      sigma2_0 <- var(resid)
+      Z0 <- matrix(cl, nrow = nrows, ncol = ncols)
 
-      private$.zMatrix <- private$update_Z(
-        Y = private$.image$matrix,
-        Z = NULL,
-        alpha = alpha_init,
-        beta  = beta_init,
-        deltas = NULL,
-        seeds = NULL,
-        mus = mus_0,
-        sigmas = sigmas_0
-      )
+      private$.zMatrix <- Z0
       
+      private$.zMatrix <- private$update_Z(
+            Y = private$.image$matrix,
+            Z = private$.zMatrix,
+            alpha = alpha_init,
+            beta = beta_init,
+            deltas = NULL,
+            seeds = NULL,
+            mus = mus_0,
+            sigmas = rep(sqrt(sigma2_0), private$.ncolors)
+          )
       
       private$.mus <- mus_0
-      private$.sigmas <- sigmas_0
+      private$.sigma2 <- sigma2_0
       private$ensure_seeds_computed()
     },
 
     seeds_kmeans = function(seeds_info) {
       all_seeds <- list()
-      mrf2d::dplot(private$.zMatrix)
       
       for (config in seeds_info) {
         color <- config$color
@@ -600,13 +618,15 @@ seedBayesianCont <- R6Class(
 
     # Roda n_iter iterações MH alternando passo de parâmetros e passo de posições
     run = function(n_iter, step_size = 0.1, init = NULL) {
-      nseeds     <- length(private$.seeds)
-      n_par_cont <- 2L + nseeds
-      nrows      <- private$.image$dim[1]
-      ncols      <- private$.image$dim[2]
-      n_pos_end  <- n_par_cont + 2L * nseeds
-      n_total    <- n_pos_end + 1L  # +1 para a coluna log_pl
-      p          <- private$.priors
+      nseeds      <- length(private$.seeds)
+      ncolors     <- private$.ncolors
+      n_par_cont  <- 2L + nseeds
+      nrows       <- private$.image$dim[1]
+      ncols       <- private$.image$dim[2]
+      n_pos_end   <- n_par_cont + 2L * nseeds
+      n_noise_end <- n_pos_end + ncolors + 1L  # mus + sigma
+      n_total     <- n_noise_end + 1L  # +1 para a coluna log_pl
+      p           <- private$.priors
 
       # inicializar parâmetros contínuos
       if (is.null(init)) {
@@ -641,7 +661,6 @@ seedBayesianCont <- R6Class(
       kept            <- matrix(NA_real_, nrow = n_iter, ncol = n_total)
       update_interval <- max(1L, n_iter %/% 200L)
       pb              <- txtProgressBar(min = 0, max = n_iter, style = 3)
-      emission <- list()
 
       for (i in seq_len(n_iter)) {
 
@@ -680,14 +699,15 @@ seedBayesianCont <- R6Class(
         kept[i, seq_len(n_par_cont)]             <- c(par[1L],
                                                       par[2L],
                                                       par[seq(3L, 2L + nseeds)])
-        kept[i, seq(n_par_cont + 1L, n_pos_end)] <- as.numeric(t(seed_pos))
+        kept[i, seq(n_par_cont + 1L, n_pos_end)]  <- as.numeric(t(seed_pos))
+        kept[i, seq(n_pos_end + 1L, n_noise_end)] <- c(private$.mus, private$.sigma2)
         kept[i, n_total] <- log_post - (
           dgamma(par[1L], p$shape_alpha, p$rate_alpha, log = TRUE) +
           dgamma(par[2L], p$shape_beta,  p$rate_beta,  log = TRUE) +
           sum(dgamma(par[seq(3L, 2L + nseeds)], p$shape_delta, p$rate_delta, log = TRUE))
         )
 
-        # Atualizar Z, mus e sigmas ao final de cada passo, MENOS na última iteração
+        # Atualizar Z, mus e sigma2 ao final de cada passo, MENOS na última iteração
         if (i < n_iter) {
           seeds_updated <- data.frame(
             x = seed_pos[, 1L],
@@ -704,20 +724,19 @@ seedBayesianCont <- R6Class(
             deltas = par[seq(3L, 2L + nseeds)],
             seeds = seeds_updated,
             mus = private$.mus,
-            sigmas = private$.sigmas
+            sigmas = rep(sqrt(private$.sigma2), private$.ncolors)
           )
           
-          # Atualizar mus e sigmas
+          # Atualizar mus e sigma2
           noise_params <- private$update_noise_params(
             Y = private$.image$matrix,
             Z = private$.zMatrix,
             mus = private$.mus,
-            sigmas = private$.sigmas,
+            sigma2 = private$.sigma2,
             priors = p
           )
           private$.mus <- noise_params$mus
-          private$.sigmas <- noise_params$sigmas
-          emission <- c(emission, list(mu = private$.mus, sigmas = private$.sigmas))
+          private$.sigma2 <- noise_params$sigma2
 
           log_post <- private$log_posterior(par, distMatrix)
         }
@@ -730,15 +749,16 @@ seedBayesianCont <- R6Class(
         "alpha", "beta", paste0("delta", seq_len(nseeds)),
         as.vector(rbind(paste0("x_", seq_len(nseeds)),
                         paste0("y_", seq_len(nseeds)))),
+        paste0("mu", seq_len(ncolors)), "sigma2",
         "log_pl"
       )
-      
-      print(emission)
 
       seedBayesianResult$new(
-        chain = kept,
-        seeds = private$.seeds,
-        image = imageData$new(private$.zMatrix)
+        chain            = kept,
+        seeds            = private$.seeds,
+        image            = imageData$new(private$.zMatrix),
+        ncolors          = ncolors,
+        image_continuous = private$.image
       )
     },
 
@@ -758,6 +778,8 @@ seedBayesianCont <- R6Class(
       cat(sprintf("    alpha ~ Gamma(%.2f, %.2f)\n", p$shape_alpha, p$rate_alpha))
       cat(sprintf("    beta  ~ Gamma(%.2f, %.2f)\n", p$shape_beta,  p$rate_beta))
       cat(sprintf("    delta ~ Gamma(%.2f, %.2f)\n", p$shape_delta, p$rate_delta))
+      cat(sprintf("    mu    ~ Normal(m = %.2f, tau = %.4f)  (comum a todas as classes)\n", p$m, p$tau))
+      cat(sprintf("    sigma2 ~ InvGamma(%.2f, %.2f)  (comum a todas as classes)\n", p$a, p$b))
       cat("    positions  ~ Uniform\n")
       invisible(self)
     }
@@ -767,7 +789,7 @@ seedBayesianCont <- R6Class(
       sqrt((private$.pos_x - (sx - 1L))^2 + (private$.pos_y - (sy - 1L))^2)
     },
     update_Z = function(Y, Z = NULL, alpha, beta, deltas = NULL, seeds = NULL,
-                             mus, sigmas) {
+                             mus, sigmas) { # sigmas: desvio-padrão (não variância), usado no dnorm do Gibbs
       n1 <- nrow(Y)
       n2 <- ncol(Y)
       K <- length(mus)
@@ -785,11 +807,12 @@ seedBayesianCont <- R6Class(
       
       conditionalGibbsSampler(Y, Z, alpha, beta, K, seeds = seeds_pos, seedColors = seed_colors, seedDeltas = deltas, mus = mus, sigmas = sigmas, steps = 1)
     },
-    update_noise_params = function(Y, Z, mus, sigmas, priors) {
+    update_noise_params = function(Y, Z, mus, sigma2, priors) {
       n_colors <- length(mus)
       
-      new_mus <- mus
-      new_sigmas <- sigmas
+      new_mus  <- mus
+      total_n  <- 0L
+      total_ss <- 0.0
       
       for(k in 1:n_colors) {
         y_k <- Y[Z == (k-1)]
@@ -797,22 +820,24 @@ seedBayesianCont <- R6Class(
         
         if(n_k == 0) next 
         
-        # Atualização do mu
-        num_m <- (priors$m[k] / priors$tau[k]) + (sum(y_k) / new_sigmas[k])
-        den_m <- (1 / priors$tau[k]) + (n_k / new_sigmas[k])
+        # Atualização do mu (priori comum a todas as classes, usa a variância comum atual)
+        num_m <- (priors$m / priors$tau) + (sum(y_k) / sigma2)
+        den_m <- (1 / priors$tau) + (n_k / sigma2)
         m <- num_m / den_m
         tau <- 1 / den_m
                 
         new_mus[k] <- rnorm(1, mean = m, sd = sqrt(tau))
         
-        # Atualização do sigma
-        a <- priors$a[k] + (n_k / 2)
-        b <- priors$b[k] + (sum((y_k - new_mus[k])^2) / 2)
-        
-        new_sigmas[k] <- 1 / rgamma(1, shape = a, rate = b)
+        total_n  <- total_n + n_k
+        total_ss <- total_ss + sum((y_k - new_mus[k])^2)
       }
       
-      return(list(mus = new_mus, sigmas = new_sigmas))
+      # Atualização da variância comum (sigma2), com resíduos de todas as classes agrupados
+      a <- priors$a + (total_n / 2)
+      b <- priors$b + (total_ss / 2)
+      new_sigma2 <- 1 / rgamma(1, shape = a, rate = b)
+      
+      return(list(mus = new_mus, sigma2 = new_sigma2))
     },
     ensure_seeds_computed = function() {
       if (is.null(private$.seeds) && !is.null(private$.seeds_info)) {
@@ -850,7 +875,7 @@ seedBayesianCont <- R6Class(
     .seedColors = NULL,
     .zMatrix    = NULL,
     .mus        = NULL,
-    .sigmas     = NULL,
+    .sigma2     = NULL,
     .pos_x      = NULL,
     .pos_y      = NULL
   )
