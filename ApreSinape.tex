@@ -109,7 +109,7 @@
 \makeatother
 
 \AtBeginSubsection{}
-\usepackage{amsfonts}
+\usepackage{dsfont}
 \setbeamertemplate{section page}{ \begin{centering} \begin{beamercolorbox}[sep=12pt,center,shadow=true,rounded=true]{section title} \usebeamerfont{section title}\insertsection\par \end{beamercolorbox} \end{centering}}
 \setbeamertemplate{subsection page}{}
 \setbeamertemplate{headline}{ \begin{beamercolorbox}[ht=2.5ex,dp=1.125ex,leftskip=.3cm,rightskip=.3cm]{section in head/foot} \usebeamerfont{section in head/foot}\insertsectionhead \hfill \usebeamerfont{subsection in head/foot}\insertsubsectionhead \end{beamercolorbox}}
@@ -160,16 +160,16 @@
 \IfFileExists{xurl.sty}{\usepackage{xurl}}{} % add URL line breaks if available
 \urlstyle{same} % disable monospaced font for URLs
 \hypersetup{
-  pdftitle={Markov Random Fields with Geographic Seeds},
-  pdfauthor={Wesley Cabral Alves},
+  pdftitle={Markov Random Fields with Spacial Seeds},
+  pdfauthor={Wesley Cabral Alves; Victor Freguglia Souza},
   hidelinks,
   pdfcreator={LaTeX via pandoc}}
 
 
-\title{Markov Random Fields with Geographic Seeds}
+\title{Markov Random Fields with Spacial Seeds}
 \subtitle{Bayesian Estimation on Hierarchical Hidden Field Model}
-\author{Wesley Cabral Alves}
-\date{2026-08-30}
+\author{Wesley Cabral Alves \and Victor Freguglia Souza}
+\date{2026-09-17}
 \institute{University of Campinas}
 
 \begin{document}
@@ -193,36 +193,15 @@
 \end{itemize}
 \end{frame}
 
-\begin{frame}{The Geographic Limitation}
-\phantomsection\label{the-geographic-limitation}
-\begin{itemize}
-\tightlist
-\item
-  Many real images and textures possess geographic patterns we call
-  \textbf{``seeds''} that may attract or repel colors.
-\item
-  \textbf{Our Proposal:} Incorporate geographic seeds that exert radial
-  influence on the classes.
-\item
-  \textbf{Objective:} Propose a reparameterized model that describe the
-  inclusion of centroids/seeds, and validate its inference under a
-  hidden model.
-\end{itemize}
-\end{frame}
-
-\section{2. The Proposal}\label{the-proposal}
-
-\subsection{Mathematical Formulation}\label{mathematical-formulation}
-
-\begin{frame}{Potts as is}
-\phantomsection\label{potts-as-is}
+\begin{frame}{The Potts Model}
+\phantomsection\label{the-potts-model-1}
 \begin{itemize}
 \tightlist
 \item
   \textbf{Energy Function:} For the traditional Potts Model, we define a
   spatial field \(Z\) where the local probability of pixel \(i\) taking
   class \(k\) is proportional to \(exp(\eta_i(k))\):
-  \[\eta_i(k) = \alpha \sum_{j \in N(i)} \mathbb{1}(Z_j = k) + \beta \mathbb{1}(k = 0)\]
+  \[\eta_i(k) = \alpha \sum_{j \in N(i)} \mathds{1}(Z_j = k) + \beta \mathds{1}(k = 0)\]
 \item
   \textbf{Parameters Meaning:}
 
@@ -240,6 +219,27 @@
 \end{itemize}
 \end{frame}
 
+\begin{frame}{The Spacial Limitation}
+\phantomsection\label{the-spacial-limitation}
+\begin{itemize}
+\tightlist
+\item
+  Many real images and textures possess spacial patterns we call
+  \textbf{``seeds''} that may attract or repel colors.
+\item
+  \textbf{Our Proposal:} Incorporate spacial seeds that exert radial
+  influence on the classes.
+\item
+  \textbf{Objective:} Propose a reparameterized model that describe the
+  inclusion of centroids/seeds, and validate its inference under a
+  hidden model.
+\end{itemize}
+\end{frame}
+
+\section{2. The Proposal}\label{the-proposal}
+
+\subsection{Mathematical Formulation}\label{mathematical-formulation}
+
 \begin{frame}{Potts Reparameterized with Seeds}
 \phantomsection\label{potts-reparameterized-with-seeds}
 \begin{itemize}
@@ -247,8 +247,8 @@
 \item
   \textbf{Enhanced Local Energy Function:} To address the isotropic
   limitation of the Potts model, we introduce a few elements to handle
-  the geographic centrality bias in our local energy funtion:
-  \[\eta_i(k) = \alpha \sum_{j \in N(i)} 1(Z_j = k) + \beta 1(k = 0) + \sum_s \frac{\delta_s}{1 + d(i, s)} 1(c_s = k)\]
+  the spacial centrality bias in our local energy funtion:
+  \[\eta_i(k) = \alpha \sum_{j \in N(i)} \mathds{1}(Z_j = k) + \beta \mathds{1}(k = 0) + \sum_s \frac{\delta_s}{1 + d(i, s)} \mathds{1}(c_s = k)\]
 \item
   \textbf{Parameters Meaning:}
 
@@ -276,10 +276,14 @@
 \begin{itemize}
 \item
   \textbf{Enhanced Local Energy Function:}
-  \[\eta_i(k) = \alpha \sum_{j \in N(i)} 1(Z_j = k) + \beta 1(k = 0) + \sum_s \frac{\delta_s}{1 + d(i, s)} 1(c_s = k)\]
+  \[\eta_i(k) = \alpha \sum_{j \in N(i)} \mathds{1}(Z_j = k) + \beta \mathds{1}(k = 0) + \sum_s \frac{\delta_s}{1 + d(i, s)} \mathds{1}(c_s = k)\]
 \item
-  \textbf{Enhanced Global Energy Function:}
-  \[U(\omega) = \alpha  \sum_{\{i,j\} \in E} \sum_{k \in S} s_{i,k}s_{j,k} + \beta 1(k = 0) + \sum_s \frac{\delta_s}{1 + d(i, s)} 1(c_s = k)\]
+  \textbf{Enhanced Global Energy Function:} \[
+  \begin{aligned}
+  U(\omega) = \alpha \sum_{\{i,j\} \in E} \sum_{k \in S} \mathds{1}(\omega_i = k)\mathds{1}(\omega_j = k) + \beta \sum_{i \in N}\mathds{1}(\omega_i = 0) +  \\
+  \sum_{i \in N}  \sum_s \frac{\delta_s}{1 + d(i, s)} \mathds{1}(\omega_i = c_s)
+  \end{aligned}
+  \]
 \end{itemize}
 \end{frame}
 
@@ -295,7 +299,8 @@
   smoothing, they cancel out when:
   \[\eta_i(0)= \eta_i(k) \implies d_{i,s} = \frac{\delta_s}{\beta}-1\]
 \item
-  \textbf{Geographic Transition:}
+  \textbf{Spacial Transition:} That ``Null Boundary'' radius gives to
+  the model a rough outline of the objects in the image.
 
   \begin{itemize}
   \tightlist
@@ -306,7 +311,7 @@
     \textbf{Beyond radius \(d_i\):} The class 0 dominates.
   \item
     \textbf{Smoothing effect:} Depending on \(\alpha\) value, pixels can
-    be affected more by its naighbors than by the radius rule.
+    be affected more by its neighbors than by the radius rule.
   \end{itemize}
 \end{itemize}
 \end{frame}
@@ -318,12 +323,12 @@
 \item
   \textbf{The Gibbs Measure:} The global probability of an image
   configuration \(\omega\) is governed by:
-  \[P(\omega) = \frac{1}{Z(\theta)} \exp\{-U(\omega)\}\]
+  \[P(\omega) = \frac{1}{Z(\theta)} \exp\{U(\omega)\}\]
 \item
   \textbf{The Computational Bottleneck:} The term \(Z(\theta)\) is the
   \textbf{normalizing constant} (partition function) summed over all
   lattice configurations \(\Omega\):
-  \[Z(\theta) = \sum_{\omega \in \Omega} \exp\{-U(\omega)\}\]
+  \[Z(\theta) = \sum_{\omega \in \Omega} \exp\{U(\omega)\}\]
 \item
   For a small \(50 \times 50\) grid and \(K = 3\) colors, this requires
   \(3^{2500}\) terms, rendering standard Maximum Likelihood impossible.
@@ -366,8 +371,8 @@ Models}\label{hidden-hierarchical-models}
   \(\theta\), and seed coordinates \(S\) as random variables: \[
   \begin{aligned}
   P(Y, Z, \theta) = P(Y \mid Z, \mu, \sigma^2) P(Z \mid \alpha, \beta, \delta, S) \times  \\
-  P(\alpha)P(\beta)\prod_{j=1}^M P(s_j)P(\delta_j)
-  \prod_{k=0}^{K-1} P(\mu_k)P(\sigma^2_k)
+  \pi(\alpha)\pi(\beta)\prod_{j=1}^M \pi(s_j)\pi(\delta_j)
+  \prod_{k=0}^{K-1} \pi(\mu_k)\pi(\sigma^2_k)
   \end{aligned}
   \]
 \item
@@ -392,36 +397,76 @@ Models}\label{hidden-hierarchical-models}
 \end{itemize}
 \end{frame}
 
-\section{3. Estimation \& Algorithms}\label{estimation-algorithms}
+\section{4. Estimation \& Algorithms}\label{estimation-algorithms}
 
 \subsection{MCMC Estimation}\label{mcmc-estimation}
+
+\begin{frame}{The Metropolis-Hastings Step via Pseudoposterior}
+\phantomsection\label{the-metropolis-hastings-step-via-pseudoposterior}
+\begin{itemize}
+\tightlist
+\item
+  \textbf{Fixing the Bottleneck:} Because the true likelihood is
+  intractable, we replace \(P(Z \mid \theta)\) with the Pseudolikelihood
+  \(PL(\theta; Z)\) in the Metropolis-Hastings acceptance step. \[
+  \begin{aligned}
+  P(Z_i = k \mid Z_{-i}, \theta) = \frac{P(Z_i = k, Z_{-i} \mid \theta)}{P(Z_{-i} \mid \theta)} = \\
+  \frac{\frac{1}{Z(\theta)} \exp\{U(Z_i = k, Z_{-i})\}}{\sum_{\ell=0}^{K-1} \frac{1}{Z(\theta)} \exp\{U(Z_i = \ell, Z_{-i})\}}
+  \end{aligned}
+  \]
+\end{itemize}
+
+\[PL(\theta; Z) = \prod_{i \in N} \frac{\exp\{\eta_i(z_i)\}}{\sum_{\ell=0}^{K-1} \exp\{\eta_i(\ell)\}}\]
+
+\begin{itemize}
+\tightlist
+\item
+  \textbf{The Target Pseudoposterior:} This substitution formally
+  defines our target distribution as the \textbf{Pseudoposterior}:
+  \[\pi_{\text{pseudo}}(\theta \mid Z) \propto PL(\theta; Z) \pi(\theta)\]
+\end{itemize}
+\end{frame}
+
+\begin{frame}{The Metropolis-Hastings Step via Pseudoposterior}
+\phantomsection\label{the-metropolis-hastings-step-via-pseudoposterior-1}
+\begin{itemize}
+\tightlist
+\item
+  \textbf{Acceptance Probability:} For a symmetric proposal distribution
+  \(D(\theta^* \mid \theta)\), a proposed parameter vector \(\theta^*\)
+  is accepted with probability \(\min(1, A)\), where:
+  \[A = \frac{\pi_{\text{pseudo}}(\theta^* \mid Z)}{\pi_{\text{pseudo}}(\theta \mid Z)} = \frac{PL(\theta^*; Z) \pi(\theta^*)}{PL(\theta; Z) \pi(\theta)}\]
+\item
+  In log-scale, the proposal is accepted if:
+  \[\log(U) < \log PL(\theta^*; Z) + \log \pi(\theta^*) - \log PL(\theta; Z) - \log \pi(\theta)\]
+\end{itemize}
+\end{frame}
 
 \begin{frame}{The Metropolis-within-Gibbs Algorithm}
 \phantomsection\label{the-metropolis-within-gibbs-algorithm}
 \begin{enumerate}
+\setcounter{enumi}{-1}
 \tightlist
+\item
+  \textbf{Initialization}: Noise parameters \((\mu_k, \sigma^2_k)\) are
+  calculated via K-means over the observed intensity \(Y_i\) and they
+  are used among the spacial parameters prioris to generate the initial
+  \(Z^{(0)}\) hidden field.
+\item
+  \textbf{Step A (Metropolis-Hastings - Field):} Propose
+  \((\alpha, \beta, \delta)\) via a random walk, evaluated over the
+  \textbf{Pseudolikelihood (PL)} (but can also be initialized by
+  user-chosen prioris).
+\item
+  \textbf{Step B (Metropolis-Hastings - Seeds):} Propose discrete
+  1-pixel steps for the coordinates \((x,y)\) of the seeds.
 \item
   \textbf{Step C (Gibbs - Latent Field):} Sample \(Z_i^{(t)}\)
   conditioned on its neighbors and the observed intensity \(Y_i\).
 \item
   \textbf{Step D (Gibbs - Noise):} Sample new \((\mu_k, \sigma^2_k)\)
   directly from closed-form analytical distributions.
-\item
-  \textbf{Step A (Metropolis-Hastings - Field):} Propose
-  \((\alpha, \beta, \delta)\) via a random walk, evaluated over the
-  \textbf{Pseudolikelihood (PL)} or user-chosen prioris.
-\item
-  \textbf{Step B (Metropolis-Hastings - Seeds):} Propose discrete
-  1-pixel steps for the coordinates \((x,y)\) of the seeds.
 \end{enumerate}
-
-\begin{itemize}
-\tightlist
-\item
-  \textbf{The Local Gibbs Trick:} Global normalizing constant
-  \(Z(\theta)\) cancels out locally.
-  \[P(Z_i = k \mid Y_i, Z_{-i}, \theta) = \frac{\phi(y_i; \mu_k, \sigma^2_k) \exp\{\eta_i(k)\}}{\sum_{\ell} \phi(y_i; \mu_\ell, \sigma^2_\ell) \exp\{\eta_i(\ell)\}}\]
-\end{itemize}
 \end{frame}
 
 \begin{frame}{Full Conditionals and Conjugacy}
@@ -446,20 +491,13 @@ Models}\label{hidden-hierarchical-models}
 \begin{itemize}
 \tightlist
 \item
-  \textbf{Log-Sum-Exp Trick:} To prevent catastrophic
-  underflow/overflow:
-  \[\log \sum_j \exp(x_j) = x_{\max} + \log \sum_j \exp(x_j - x_{\max})\]
-\item
-  \textbf{Preventing Label Switching:} We enforce strict ordering of the
-  means (\(\mu_0 < \mu_1 < \dots\)) at each Gibbs iteration.
-\item
   \textbf{Rcpp for Real-World Grids:} Recreated the local neighborhood
   and distance calculations in \textbf{C++ via Rcpp} to make iterations
   highly efficient.
 \end{itemize}
 \end{frame}
 
-\section{4. Results \& Application}\label{results-application}
+\section{5. Results \& Application}\label{results-application}
 
 \subsection{Numerical Results}\label{numerical-results}
 
@@ -471,11 +509,10 @@ Models}\label{hidden-hierarchical-models}
   \textbf{Parameter Recovery:} MWG algorithm shows rapid convergence
   after a short burn-in period.
 \item
-  \textbf{Credible Intervals:} True spatial and geographic parameters
-  are captured within 90\% Bayesian credible intervals (5\% and 95\%
-  quantiles).
+  \textbf{Credible Intervals:} True spatial parameters are captured
+  within 90\% Bayesian credible intervals (5\% and 95\% quantiles).
 \item
-  \textbf{Geographic Trajectory:} Seed positions walk stochastically and
+  \textbf{Spacial Trajectory:} Seed positions walk stochastically and
   converge exactly on their true coordinates.
 \end{itemize}
 \end{frame}
@@ -484,9 +521,6 @@ Models}\label{hidden-hierarchical-models}
 \phantomsection\label{image-segmentation-application}
 \begin{itemize}
 \tightlist
-\item
-  \textbf{Texture Segmentation:} Without spatial priors, simple mixtures
-  produce extremely noisy results.
 \item
   \textbf{Our Model:} The latent field with seeds creates \textbf{smooth
   regions}, preserving concentric attraction near seeds.
@@ -511,7 +545,7 @@ Models}\label{hidden-hierarchical-models}
 \tightlist
 \item
   \textbf{Key Conclusions:} The MWG pipeline makes inference in
-  geographically complex HMRFs viable and robust.
+  spacially complex HMRFs viable and robust.
 \item
   \textbf{Efficiency:} Estimation via Pseudoposterior balances
   computational cost and statistical precision.

@@ -3,8 +3,9 @@ title: "Markov Random Fields with Spacial Seeds"
 subtitle: "Bayesian Estimation on Hierarchical Hidden Field Model"
 author:
   - "Wesley Cabral Alves"
+  - "Victor Freguglia Souza"
 institute: "University of Campinas"
-date: today
+date: 09/17/2026
 format:
   beamer:
     theme: madrid
@@ -18,7 +19,7 @@ format:
     beamer-headings: true
     header-includes:
       - \AtBeginSubsection{}
-      - \usepackage{amsfonts}
+      - \usepackage{dsfont}
       - \setbeamertemplate{section page}{
           \begin{centering}
               \begin{beamercolorbox}[sep=12pt,center,shadow=true,rounded=true]{section title}
@@ -43,6 +44,15 @@ format:
 * The **Potts Model** is the classical standard for capturing local neighborhood dependence.
 
 
+### The Potts Model
+* **Energy Function:** For the traditional Potts Model, we define a spatial field $Z$ where the local probability of pixel $i$ taking class $k$ is proportional to $exp(\eta_i(k))$:
+  $$\eta_i(k) = \alpha \sum_{j \in N(i)} \mathds{1}(Z_j = k) + \beta \mathds{1}(k = 0)$$
+* **Parameters Meaning:**
+  * **$N(i)$:** Pixel $i$ neighbors.
+  * **$\alpha$ (Uniformity):** Local attraction between neighboring pixels (smoothing).
+  * **$\beta$ (Global Abundance):** Force favoring/penalizing the background (class $0$).
+
+
 ### The Spacial Limitation
 * Many real images and textures possess spacial patterns we call **"seeds"** that may attract or repel colors.
 * **Our Proposal:** Incorporate spacial seeds that exert radial influence on the classes.
@@ -52,18 +62,12 @@ format:
 
 ## Mathematical Formulation
 
-### Potts as is
-* **Energy Function:** For the traditional Potts Model, we define a spatial field $Z$ where the local probability of pixel $i$ taking class $k$ is proportional to $exp(\eta_i(k))$:
-  $$\eta_i(k) = \alpha \sum_{j \in N(i)} \mathbb{1}(Z_j = k) + \beta \mathbb{1}(k = 0)$$
-* **Parameters Meaning:**
-  * **$N(i)$:** Pixel $i$ neighbors.
-  * **$\alpha$ (Uniformity):** Local attraction between neighboring pixels (smoothing).
-  * **$\beta$ (Global Abundance):** Force favoring/penalizing the background (class $0$).
+
 
 ### Potts Reparameterized with Seeds
 * **Enhanced Local Energy Function:** To address the isotropic limitation of the Potts model, we introduce a few elements to handle
 the spacial centrality bias in our local energy funtion:
-  $$\eta_i(k) = \alpha \sum_{j \in N(i)} 1(Z_j = k) + \beta 1(k = 0) + \sum_s \frac{\delta_s}{1 + d(i, s)} 1(c_s = k)$$
+  $$\eta_i(k) = \alpha \sum_{j \in N(i)} \mathds{1}(Z_j = k) + \beta \mathds{1}(k = 0) + \sum_s \frac{\delta_s}{1 + d(i, s)} \mathds{1}(c_s = k)$$
 * **Parameters Meaning:**
   * **$\alpha$ (Uniformity):** Local attraction between neighboring pixels (smoothing).
   * **$\beta$ (Global Abundance):** Force favoring/penalizing the background (class $0$).
@@ -74,10 +78,15 @@ the spacial centrality bias in our local energy funtion:
 
 ### Potts Reparameterized with Seeds
 * **Enhanced Local Energy Function:**
-  $$\eta_i(k) = \alpha \sum_{j \in N(i)} 1(Z_j = k) + \beta 1(k = 0) + \sum_s \frac{\delta_s}{1 + d(i, s)} 1(c_s = k)$$
+  $$\eta_i(k) = \alpha \sum_{j \in N(i)} \mathds{1}(Z_j = k) + \beta \mathds{1}(k = 0) + \sum_s \frac{\delta_s}{1 + d(i, s)} \mathds{1}(c_s = k)$$
 
 * **Enhanced Global Energy Function:** 
-  $$U(\omega) = \alpha  \sum_{\{i,j\} \in E} \sum_{k \in S} s_{i,k}s_{j,k} + \beta 1(k = 0) + \sum_s \frac{\delta_s}{1 + d(i, s)} 1(c_s = k)$$
+  $$
+  \begin{aligned}
+  U(\omega) = \alpha \sum_{\{i,j\} \in E} \sum_{k \in S} \mathds{1}(\omega_i = k)\mathds{1}(\omega_j = k) + \beta \sum_{i \in N}\mathds{1}(\omega_i = 0) +  \\
+  \sum_{i \in N}  \sum_s \frac{\delta_s}{1 + d(i, s)} \mathds{1}(\omega_i = c_s)
+  \end{aligned}
+  $$
 
 ### The Threshold of the "Area of Influence"
 * **Equilibrium of Forces:** The local seed attraction competes against the global abundance of the background class.
@@ -126,9 +135,34 @@ the spacial centrality bias in our local energy funtion:
   * **Variances (Inverse-Gamma):** $\sigma^2_k \sim IG(a_\sigma, b_\sigma)$.
   * **Geography:** Seed position $s_j \sim \text{Unif}(L)$ discretized on the grid.
 
-# 3. Estimation & Algorithms
+# 4. Estimation & Algorithms
 
 ## MCMC Estimation
+
+### The Metropolis-Hastings Step via Pseudoposterior
+* **Fixing the Bottleneck:** Because the true likelihood is intractable, we replace $P(Z \mid \theta)$ with the Pseudolikelihood $PL(\theta; Z)$ in the Metropolis-Hastings acceptance step.
+$$
+\begin{aligned}
+P(Z_i = k \mid Z_{-i}, \theta) = \frac{P(Z_i = k, Z_{-i} \mid \theta)}{P(Z_{-i} \mid \theta)} = \\
+\frac{\frac{1}{Z(\theta)} \exp\{U(Z_i = k, Z_{-i})\}}{\sum_{\ell=0}^{K-1} \frac{1}{Z(\theta)} \exp\{U(Z_i = \ell, Z_{-i})\}}
+\end{aligned}
+$$
+
+$$PL(\theta; Z) = \prod_{i \in N} \frac{\exp\{\eta_i(z_i)\}}{\sum_{\ell=0}^{K-1} \exp\{\eta_i(\ell)\}}$$
+
+
+
+
+* **The Target Pseudoposterior:** This substitution formally defines our target distribution as the **Pseudoposterior**:
+  $$\pi_{\text{pseudo}}(\theta \mid Z) \propto PL(\theta; Z) \pi(\theta)$$
+
+
+### The Metropolis-Hastings Step via Pseudoposterior
+* **Acceptance Probability:** For a symmetric proposal distribution $D(\theta^* \mid \theta)$, a proposed parameter vector $\theta^*$ is accepted with probability $\min(1, A)$, where:
+  $$A = \frac{\pi_{\text{pseudo}}(\theta^* \mid Z)}{\pi_{\text{pseudo}}(\theta \mid Z)} = \frac{PL(\theta^*; Z) \pi(\theta^*)}{PL(\theta; Z) \pi(\theta)}$$
+* In log-scale, the proposal is accepted if:
+  $$\log(U) < \log PL(\theta^*; Z) + \log \pi(\theta^*) - \log PL(\theta; Z) - \log \pi(\theta)$$
+
 
 ### The Metropolis-within-Gibbs Algorithm
 0. **Initialization**: Noise parameters $(\mu_k, \sigma^2_k)$ are calculated via K-means over the observed intensity $Y_i$ and they are used among the spacial parameters prioris to generate the initial $Z^{(0)}$ hidden field.
@@ -137,8 +171,6 @@ the spacial centrality bias in our local energy funtion:
 3. **Step C (Gibbs - Latent Field):** Sample $Z_i^{(t)}$ conditioned on its neighbors and the observed intensity $Y_i$.
 4. **Step D (Gibbs - Noise):** Sample new $(\mu_k, \sigma^2_k)$ directly from closed-form analytical distributions.
 
-* **The Local Gibbs Trick:** Global normalizing constant $Z(\theta)$ cancels out locally.
-  $$P(Z_i = k \mid Y_i, Z_{-i}, \theta) = \frac{\phi(y_i; \mu_k, \sigma^2_k) \exp\{\eta_i(k)\}}{\sum_{\ell} \phi(y_i; \mu_\ell, \sigma^2_\ell) \exp\{\eta_i(\ell)\}}$$
 
 ### Full Conditionals and Conjugacy
 * **Updated Posterior Mean ($\mu_k$):** The full conditional under conjugate priors is a Normal:
@@ -152,7 +184,7 @@ the spacial centrality bias in our local energy funtion:
 ### Code Engineering & Stability Challenges
 * **Rcpp for Real-World Grids:** Recreated the local neighborhood and distance calculations in **C++ via Rcpp** to make iterations highly efficient.
 
-# 4. Results & Application
+# 5. Results & Application
 
 ## Numerical Results
 
