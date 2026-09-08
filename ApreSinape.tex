@@ -191,6 +191,34 @@
   The \textbf{Potts Model} is the classical standard for capturing local
   neighborhood dependence.
 \end{itemize}
+
+\begin{figure}
+
+\begin{minipage}{0.50\linewidth}
+
+\centering{
+
+\includegraphics[width=\linewidth,height=0.4\textheight,keepaspectratio]{Apreimages/plot_Intro_PottsStrong.png}
+
+}
+
+\subcaption{\label{fig-astrong}High neighborhood dependence}
+
+\end{minipage}%
+%
+\begin{minipage}{0.50\linewidth}
+
+\centering{
+
+\includegraphics[width=\linewidth,height=0.4\textheight,keepaspectratio]{Apreimages/plot_Intro_PottsWeak.png}
+
+}
+
+\subcaption{\label{fig-aweak}Low neighborhood dependence}
+
+\end{minipage}%
+
+\end{figure}%
 \end{frame}
 
 \begin{frame}{The Potts Model}
@@ -219,6 +247,61 @@
 \end{itemize}
 \end{frame}
 
+\begin{frame}{The Potts Model}
+\phantomsection\label{the-potts-model-2}
+\begin{figure}
+
+\begin{minipage}{0.50\linewidth}
+
+\centering{
+
+\includegraphics[width=\linewidth,height=0.35\textheight,keepaspectratio]{Apreimages/plot_Intro_PottsStrong.png}
+
+}
+
+\subcaption{\label{fig-astrong}\(\alpha = 2, \beta = 0\)}
+
+\end{minipage}%
+%
+\begin{minipage}{0.50\linewidth}
+
+\centering{
+
+\includegraphics[width=\linewidth,height=0.35\textheight,keepaspectratio]{Apreimages/plot_Intro_PottsWeak.png}
+
+}
+
+\subcaption{\label{fig-aweak}\(\alpha = 0.5, \beta = 0\)}
+
+\end{minipage}%
+\newline
+\begin{minipage}{0.50\linewidth}
+
+\centering{
+
+\includegraphics[width=\linewidth,height=0.35\textheight,keepaspectratio]{Apreimages/plot_Intro_PottsBHigh.png}
+
+}
+
+\subcaption{\label{fig-bhigh}\(\alpha = 1, \beta = 0.1\)}
+
+\end{minipage}%
+%
+\begin{minipage}{0.50\linewidth}
+
+\centering{
+
+\includegraphics[width=\linewidth,height=0.35\textheight,keepaspectratio]{Apreimages/plot_Intro_PottsBLow.png}
+
+}
+
+\subcaption{\label{fig-blow}\(\alpha = 1, \beta = 0\)}
+
+\end{minipage}%
+
+\end{figure}%
+\end{frame}
+
 \begin{frame}{The Spacial Limitation}
 \phantomsection\label{the-spacial-limitation}
 \begin{itemize}
@@ -234,6 +317,34 @@
   inclusion of centroids/seeds, and validate its inference under a
   hidden model.
 \end{itemize}
+
+\begin{figure}
+
+\begin{minipage}{0.50\linewidth}
+
+\centering{
+
+\includegraphics[width=\linewidth,height=0.35\textheight,keepaspectratio]{Apreimages/plot_Intro_PottsSpacial1.png}
+
+}
+
+\subcaption{\label{fig-astrong}\(\alpha = 3, \beta = 0\)}
+
+\end{minipage}%
+%
+\begin{minipage}{0.50\linewidth}
+
+\centering{
+
+\includegraphics[width=\linewidth,height=0.35\textheight,keepaspectratio]{Apreimages/plot_Intro_PottsSpacial2.png}
+
+}
+
+\subcaption{\label{fig-aweak}\(\alpha = 3, \beta = 0\)}
+
+\end{minipage}%
+
+\end{figure}%
 \end{frame}
 
 \section{2. The Proposal}\label{the-proposal}
@@ -359,6 +470,61 @@ Models}\label{hidden-hierarchical-models}
   spatial mixture of Gaussians:
   \[f(y_i) = \sum_{k=0}^{K-1} P(Z_i = k) \phi(y_i; \mu_k, \sigma^2_k)\]
 \end{itemize}
+\end{frame}
+
+\begin{frame}{The Major Evolution: The Hidden Model (HMRF)}
+\phantomsection\label{the-major-evolution-the-hidden-model-hmrf-1}
+\begin{figure}
+
+\begin{minipage}{0.50\linewidth}
+
+\centering{
+
+\includegraphics[width=\linewidth,height=0.35\textheight,keepaspectratio]{Apreimages/plot_Hidden_Z.png}
+
+}
+
+\subcaption{\label{fig-hiddenz}2-seeds generated image}
+
+\end{minipage}%
+%
+\begin{minipage}{0.50\linewidth}
+
+\centering{
+
+\includegraphics[width=\linewidth,height=0.35\textheight,keepaspectratio]{Apreimages/plot_Hidden_Y.png}
+
+}
+
+\subcaption{\label{fig-hiddeny}Same image plus \(N(0, 0.5)\) noise}
+
+\end{minipage}%
+\newline
+\begin{minipage}{0.50\linewidth}
+
+\centering{
+
+\includegraphics[width=\linewidth,height=0.35\textheight,keepaspectratio]{Apreimages/plot_Hidden_Freq.png}
+
+}
+
+\subcaption{\label{fig-hiddenzfreq}Clean image color frequencies}
+
+\end{minipage}%
+%
+\begin{minipage}{0.50\linewidth}
+
+\centering{
+
+\includegraphics[width=\linewidth,height=0.35\textheight,keepaspectratio]{Apreimages/plot_Hidden_Density.png}
+
+}
+
+\subcaption{\label{fig-hiddenydensity}Noisy image color densities}
+
+\end{minipage}%
+
+\end{figure}%
 \end{frame}
 
 \subsection{Hierarchical Framework}\label{hierarchical-framework}
@@ -497,47 +663,193 @@ Models}\label{hidden-hierarchical-models}
 \end{itemize}
 \end{frame}
 
-\section{5. Results \& Application}\label{results-application}
+\section{5. Application}\label{application}
 
-\subsection{Numerical Results}\label{numerical-results}
-
-\begin{frame}{Simulation Results}
-\phantomsection\label{simulation-results}
-\begin{itemize}
-\tightlist
-\item
-  \textbf{Parameter Recovery:} MWG algorithm shows rapid convergence
-  after a short burn-in period.
-\item
-  \textbf{Credible Intervals:} True spatial parameters are captured
-  within 90\% Bayesian credible intervals (5\% and 95\% quantiles).
-\item
-  \textbf{Spacial Trajectory:} Seed positions walk stochastically and
-  converge exactly on their true coordinates.
-\end{itemize}
-\end{frame}
+\subsection{Real-World Image Results}\label{real-world-image-results}
 
 \begin{frame}{Image Segmentation Application}
 \phantomsection\label{image-segmentation-application}
 \begin{itemize}
-\tightlist
 \item
-  \textbf{Our Model:} The latent field with seeds creates \textbf{smooth
-  regions}, preserving concentric attraction near seeds.
+  \textbf{The test:} In order to evaluate our model in real world data,
+  a near-infrared image was taken from FONTE.
 \item
-  \textbf{Visual Comparison:}
+  \textbf{Analysis:} Log-PL, random walks, distributions and visual
+  comparisons.
+\item
+  \textbf{Prioris:}
 
-  \begin{enumerate}
+  \begin{longtable}[]{@{}ll@{}}
+  \toprule\noalign{}
+  \endhead
+  • \(\alpha\) shape = 2 & • \(\mu\) mean (m) = 0 \\
+  • \(\alpha\) rate = 1 & • \(\mu\) sd (tau) = 0.001 \\
+  • \(\beta\) shape = 2 & • \(\sigma\) a = 10 \\
+  • \(\beta\) rate = 1 & • \(\sigma\) b = 10 \\
+  • \(\delta\) shape = 10 & • \(\delta\) rate = 0.5 \\
+  \bottomrule\noalign{}
+  \end{longtable}
+\item
+  \textbf{Initialization:}
+
+  \begin{itemize}
   \tightlist
   \item
-    Noisy Image \(Y\) \(\rightarrow\) heavy noise.
+    \(\alpha\) = 2
   \item
-    Our Model \(\rightarrow\) clean, mathematically consistent shapes.
-  \end{enumerate}
+    \(\beta\) = 2
+  \item
+    \(\delta_{1,2,3}\) = 30
+  \end{itemize}
 \end{itemize}
 \end{frame}
 
-\subsection{Conclusion}\label{conclusion}
+\begin{frame}{Image Segmentation}
+\phantomsection\label{image-segmentation}
+\begin{figure}
+
+\begin{minipage}{0.50\linewidth}
+
+\centering{
+
+\includegraphics[width=\linewidth,height=0.35\textheight,keepaspectratio]{Apreimages/174.png}
+
+}
+
+\subcaption{\label{fig-imagereal}Real colored image}
+
+\end{minipage}%
+%
+\begin{minipage}{0.50\linewidth}
+
+\centering{
+
+\includegraphics[width=\linewidth,height=0.35\textheight,keepaspectratio]{Apreimages/174_NIR.png}
+
+}
+
+\subcaption{\label{fig-imagerealNIR}Near-infrared image}
+
+\end{minipage}%
+\newline
+\begin{minipage}{0.50\linewidth}
+
+\centering{
+
+\includegraphics[width=\linewidth,height=0.35\textheight,keepaspectratio]{Apreimages/plot_Application_Y.png}
+
+}
+
+\subcaption{\label{fig-imageY}Image frame}
+
+\end{minipage}%
+%
+\begin{minipage}{0.50\linewidth}
+
+\centering{
+
+\includegraphics[width=\linewidth,height=0.35\textheight,keepaspectratio]{Apreimages/plot_Application_Z.png}
+
+}
+
+\subcaption{\label{fig-ImageZ0}Z initialization}
+
+\end{minipage}%
+
+\end{figure}%
+\end{frame}
+
+\begin{frame}{Parameters Convergence}
+\phantomsection\label{parameters-convergence}
+\begin{figure}
+
+\begin{minipage}{\linewidth}
+
+\centering{
+
+\includegraphics[width=\linewidth,height=0.35\textheight,keepaspectratio]{Apreimages/plot_Application_LogPL.png}
+
+}
+
+\subcaption{\label{fig-logpl}Log pseudolikelihood}
+
+\end{minipage}%
+\newline
+\begin{minipage}{0.50\linewidth}
+
+\centering{
+
+\includegraphics[width=\linewidth,height=0.35\textheight,keepaspectratio]{Apreimages/plot_Application_Convergence.png}
+
+}
+
+\subcaption{\label{fig-convergence}MCMC traces}
+
+\end{minipage}%
+%
+\begin{minipage}{0.50\linewidth}
+
+\centering{
+
+\includegraphics[width=\linewidth,height=0.35\textheight,keepaspectratio]{Apreimages/plot_Application_Distributions.png}
+
+}
+
+\subcaption{\label{fig-distributions}Posterior distributions}
+
+\end{minipage}%
+
+\end{figure}%
+\end{frame}
+
+\begin{frame}{Seed Locations}
+\phantomsection\label{seed-locations}
+\begin{figure}
+
+\begin{minipage}{0.50\linewidth}
+
+\centering{
+
+\includegraphics[width=\linewidth,height=0.4\textheight,keepaspectratio]{Apreimages/plot_Application_Seeds.png}
+
+}
+
+\subcaption{\label{fig-seedscircles}Influence area estimated locations}
+
+\end{minipage}%
+%
+\begin{minipage}{0.50\linewidth}
+
+\centering{
+
+\includegraphics[width=\linewidth,height=0.4\textheight,keepaspectratio]{Apreimages/plot_Application_Heatmap.png}
+
+}
+
+\subcaption{\label{fig-seedsheatmap}Seeds random walk heatmap}
+
+\end{minipage}%
+
+\end{figure}%
+\end{frame}
+
+\begin{frame}{Image Segmentation Application Results}
+\phantomsection\label{image-segmentation-application-results}
+\begin{itemize}
+\tightlist
+\item
+  \textbf{Good initialization:} Testing prioris may lead to a good first
+  \(Z\).
+\item
+  \textbf{Fast Convergence:} After step 30001, parameters did not change
+  drastically. The entire pipeline took \textasciitilde7 minutes for
+  10000 steps.
+\item
+  \textbf{Accurate seeds:} Seed plots showed that seeds were well
+  estimated as well as their influence area, but could get confused with
+  background-within cases.
+\end{itemize}
+\end{frame}
 
 \begin{frame}{Conclusion and Next Steps}
 \phantomsection\label{conclusion-and-next-steps}

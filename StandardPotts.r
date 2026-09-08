@@ -4,8 +4,8 @@ tic()
 # Parâmetros do Modelo
 grid_size <- 50       # Tamanho da imagem (50x50)
 n_colors <- 3         # Cores
-alpha <- -0.8       # Negativo para ser valorizar vizinhos iguais
-betas <- c(0, 0.01, 0.05)   # Penalização para cada cor
+alpha <- -1       # Negativo para ser valorizar vizinhos iguais
+betas <- c(-1, 0, 0)   # Penalização para cada cor
 n_iterations <- 500000 # Sugestão do livro
 
 
@@ -46,7 +46,7 @@ for(step in 1:n_iterations) {
 }
 
 # Gráfico
-image(grid, col = topo.colors(n_colors), main = "Simulação MRF Multi-Cores")
+image(grid, col = topo.colors(n_colors), main = "3-color MRF")
 
 
 ### PSEUDOVEROSSIMILHANÇA

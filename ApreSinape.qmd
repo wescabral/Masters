@@ -43,6 +43,13 @@ format:
 * Spatial models on regular lattices (pixels) often employ **Markov Random Fields (MRF)**.
 * The **Potts Model** is the classical standard for capturing local neighborhood dependence.
 
+::: {#fig-potts-panel layout-ncol=2}
+![High neighborhood dependence](Apreimages/plot_Intro_PottsStrong.png){#fig-astrong height="40%"}
+
+![Low neighborhood dependence](Apreimages/plot_Intro_PottsWeak.png){#fig-aweak height="40%"}
+:::
+
+
 
 ### The Potts Model
 * **Energy Function:** For the traditional Potts Model, we define a spatial field $Z$ where the local probability of pixel $i$ taking class $k$ is proportional to $exp(\eta_i(k))$:
@@ -53,10 +60,31 @@ format:
   * **$\beta$ (Global Abundance):** Force favoring/penalizing the background (class $0$).
 
 
+### The Potts Model
+
+::: {#fig-potts-panel2 layout-nrow=2}
+
+![$\alpha = 2, \beta = 0$](Apreimages/plot_Intro_PottsStrong.png){#fig-astrong height="35%"}
+
+![$\alpha = 0.5, \beta = 0$](Apreimages/plot_Intro_PottsWeak.png){#fig-aweak height="35%"}
+
+![$\alpha = 1, \beta = 0.1$](Apreimages/plot_Intro_PottsBHigh.png){#fig-bhigh height="35%"}
+
+![$\alpha = 1, \beta = 0$](Apreimages/plot_Intro_PottsBLow.png){#fig-blow height="35%"}
+
+:::
+
+
 ### The Spacial Limitation
 * Many real images and textures possess spacial patterns we call **"seeds"** that may attract or repel colors.
 * **Our Proposal:** Incorporate spacial seeds that exert radial influence on the classes.
 * **Objective:** Propose a reparameterized model that describe the inclusion of centroids/seeds, and validate its inference under a hidden model.
+
+::: {#fig-potts-panel layout-ncol=2}
+![$\alpha = 3, \beta = 0$](Apreimages/plot_Intro_PottsSpacial1.png){#fig-astrong height="35%"}
+
+![$\alpha = 3, \beta = 0$](Apreimages/plot_Intro_PottsSpacial2.png){#fig-aweak height="35%"}
+:::
 
 # 2. The Proposal
 
@@ -116,6 +144,18 @@ the spacial centrality bias in our local energy funtion:
   $$Y_i \mid Z_i = k \sim N(\mu_k, \sigma^2_k)$$
 * **Normal Mixture:** Marginalizing over $Z_i$, $Y_i$ forms a spatial mixture of Gaussians:
   $$f(y_i) = \sum_{k=0}^{K-1} P(Z_i = k) \phi(y_i; \mu_k, \sigma^2_k)$$
+
+### The Major Evolution: The Hidden Model (HMRF)
+::: {#fig-potts-panel layout-ncol=2}
+![2-seeds generated image](Apreimages/plot_Hidden_Z.png){#fig-hiddenz height="35%"}
+
+![Same image plus $N(0, 0.5)$ noise](Apreimages/plot_Hidden_Y.png){#fig-hiddeny height="35%"}
+
+![Clean image color frequencies](Apreimages/plot_Hidden_Freq.png){#fig-hiddenzfreq height="35%"}
+
+![Noisy image color densities](Apreimages/plot_Hidden_Density.png){#fig-hiddenydensity height="35%"}
+:::
+
 
 ## Hierarchical Framework
 
@@ -184,22 +224,65 @@ $$PL(\theta; Z) = \prod_{i \in N} \frac{\exp\{\eta_i(z_i)\}}{\sum_{\ell=0}^{K-1}
 ### Code Engineering & Stability Challenges
 * **Rcpp for Real-World Grids:** Recreated the local neighborhood and distance calculations in **C++ via Rcpp** to make iterations highly efficient.
 
-# 5. Results & Application
+# 5. Application
 
-## Numerical Results
-
-### Simulation Results
-* **Parameter Recovery:** MWG algorithm shows rapid convergence after a short burn-in period.
-* **Credible Intervals:** True spatial parameters are captured within 90% Bayesian credible intervals (5% and 95% quantiles).
-* **Spacial Trajectory:** Seed positions walk stochastically and converge exactly on their true coordinates.
+## Real-World Image Results
 
 ### Image Segmentation Application
-* **Our Model:** The latent field with seeds creates **smooth regions**, preserving concentric attraction near seeds.
-* **Visual Comparison:**
-  1. Noisy Image $Y$ $\rightarrow$ heavy noise.
-  2. Our Model $\rightarrow$ clean, mathematically consistent shapes.
+* **The test:** In order to evaluate our model in real world data, a near-infrared image was taken from FONTE.
+* **Analysis:** Log-PL, random walks, distributions and visual comparisons.
+* **Prioris:**
+    
+  | | |
+  | :--- | :--- |
+  | &bull; $\alpha$ shape = 2 | &bull; $\mu$ mean (m) = 0 |
+  | &bull; $\alpha$ rate = 1 | &bull; $\mu$ sd (tau) = 0.001 |
+  | &bull; $\beta$ shape = 2 | &bull; $\sigma$ a = 10 |
+  | &bull; $\beta$ rate  = 1 | &bull; $\sigma$ b = 10 |
+  | &bull; $\delta$ shape = 10 | &bull; $\delta$ rate = 0.5 |
 
-## Conclusion
+* **Initialization:**
+  * $\alpha$ = 2
+  * $\beta$ = 2
+  * $\delta_{1,2,3}$ = 30
+
+### Image Segmentation
+
+::: {#fig-realimage-panel layout-ncol=2}
+![Real colored image](Apreimages/174.png){#fig-imagereal height="35%"}
+
+![Near-infrared image](Apreimages/174_NIR.png){#fig-imagerealNIR height="35%"}
+
+![Image frame](Apreimages/plot_Application_Y.png){#fig-imageY height="35%"}
+
+![Z initialization](Apreimages/plot_Application_Z.png){#fig-ImageZ0 height="35%"}
+:::
+
+
+### Parameters Convergence
+
+::: {#fig-parameters-panel layout="[[1], [1, 1]]"}
+![Log pseudolikelihood](Apreimages/plot_Application_LogPL.png){#fig-logpl height="35%"}
+
+![MCMC traces](Apreimages/plot_Application_Convergence.png){#fig-convergence height="35%"}
+
+![Posterior distributions](Apreimages/plot_Application_Distributions.png){#fig-distributions height="35%"}
+:::
+
+
+### Seed Locations
+
+::: {#fig-realimage-panel layout-ncol=2}
+![Influence area estimated locations](Apreimages/plot_Application_Seeds.png){#fig-seedscircles height="40%"}
+
+![Seeds random walk heatmap](Apreimages/plot_Application_Heatmap.png){#fig-seedsheatmap height="40%"}
+:::
+
+### Image Segmentation Application Results
+* **Good initialization:** Testing prioris may lead to a good first $Z$.
+* **Fast Convergence:** After step 30001, parameters did not change drastically. The entire pipeline took ~7 minutes for 10000 steps.
+* **Accurate seeds:** Seed plots showed that seeds were well estimated as well as their influence area, but could get confused with background-within cases.
+
 
 ### Conclusion and Next Steps
 * **Key Conclusions:** The MWG pipeline makes inference in spacially complex HMRFs viable and robust.
