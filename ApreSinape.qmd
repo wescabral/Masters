@@ -6,6 +6,7 @@ author:
   - "Victor Freguglia Souza"
 institute: "University of Campinas"
 date: 09/17/2026
+bibliography: references.bib
 format:
   beamer:
     theme: madrid
@@ -141,9 +142,9 @@ the spacial centrality bias in our local energy funtion:
 * **The Latent Field:** In segmentation practice, the label field $Z$ (the true texture) is **latent/hidden**.
 * **Observed Intensities:** We only observe the noisy, continuous intensities $Y$.
 * **Observation Equation (Emission):** Conditionally on the latent label $Z_i = k$, the intensity $Y_i$ is Normal:
-  $$Y_i \mid Z_i = k \sim N(\mu_k, \sigma^2_k)$$
+  $$Y_i \mid Z_i = k \sim N(\mu_k, \sigma^2)$$
 * **Normal Mixture:** Marginalizing over $Z_i$, $Y_i$ forms a spatial mixture of Gaussians:
-  $$f(y_i) = \sum_{k=0}^{K-1} P(Z_i = k) \phi(y_i; \mu_k, \sigma^2_k)$$
+  $$f(y_i) = \sum_{k=0}^{K-1} P(Z_i = k) \phi(y_i; \mu_k, \sigma^2)$$
 
 ### The Major Evolution: The Hidden Model (HMRF)
 ::: {#fig-potts-panel layout-ncol=2}
@@ -165,15 +166,15 @@ the spacial centrality bias in our local energy funtion:
   \begin{aligned}
   P(Y, Z, \theta) = P(Y \mid Z, \mu, \sigma^2) P(Z \mid \alpha, \beta, \delta, S) \times  \\
   \pi(\alpha)\pi(\beta)\prod_{j=1}^M \pi(s_j)\pi(\delta_j)
-  \prod_{k=0}^{K-1} \pi(\mu_k)\pi(\sigma^2_k)
+  \prod_{k=0}^{K-1} \pi(\mu_k)\pi(\sigma^2)
   \end{aligned}
   $$
 
 * **Prior Distributions:**
   * **Field (Gamma):** $\alpha \sim \text{Gamma}(a_\alpha, b_\alpha)$, $\beta \sim \text{Gamma}(a_\beta, b_\beta)$.
   * **Means (Normal):** $\mu_k \sim N(m_k, \tau^2_k)$ (anchored via K-means).
-  * **Variances (Inverse-Gamma):** $\sigma^2_k \sim IG(a_\sigma, b_\sigma)$.
-  * **Geography:** Seed position $s_j \sim \text{Unif}(L)$ discretized on the grid.
+  * **Variances (Inverse-Gamma):** $\sigma^2 \sim IG(a_\sigma, b_\sigma)$.
+  * **Spacial:** Seed position $s_j \sim \text{Unif}(L)$ discretized on the grid.
 
 # 4. Estimation & Algorithms
 
@@ -205,17 +206,18 @@ $$PL(\theta; Z) = \prod_{i \in N} \frac{\exp\{\eta_i(z_i)\}}{\sum_{\ell=0}^{K-1}
 
 
 ### The Metropolis-within-Gibbs Algorithm
-0. **Initialization**: Noise parameters $(\mu_k, \sigma^2_k)$ are calculated via K-means over the observed intensity $Y_i$ and they are used among the spacial parameters prioris to generate the initial $Z^{(0)}$ hidden field.
+0. **Initialization**: Noise parameters $(\mu_k, \sigma^2)$ are calculated via K-means over the observed intensity $Y_i$ and they are used among the spacial parameters prioris to generate the initial $Z^{(0)}$ hidden field.
 1. **Step A (Metropolis-Hastings - Field):** Propose $(\alpha, \beta, \delta)$ via a random walk, evaluated over the **Pseudolikelihood (PL)** (but can also be initialized by user-chosen prioris).
 2. **Step B (Metropolis-Hastings - Seeds):** Propose discrete 1-pixel steps for the coordinates $(x,y)$ of the seeds.
 3. **Step C (Gibbs - Latent Field):** Sample $Z_i^{(t)}$ conditioned on its neighbors and the observed intensity $Y_i$.
-4. **Step D (Gibbs - Noise):** Sample new $(\mu_k, \sigma^2_k)$ directly from closed-form analytical distributions.
+4. **Step D (Gibbs - Noise):** Sample new $(\mu_k, \sigma^2)$ directly from closed-form analytical distributions.
 
 
 ### Full Conditionals and Conjugacy
 * **Updated Posterior Mean ($\mu_k$):** The full conditional under conjugate priors is a Normal:
-  $$\mu_{\text{post}} = \frac{\frac{m_k}{\tau^2_k} + \frac{\sum_{i: Z_i=k} y_i}{\sigma^2_k}}{\frac{1}{\tau^2_k} + \frac{n_k}{\sigma^2_k}}$$
-* **Updated Posterior Variance ($\sigma^2_k$):** Follows an Inverse-Gamma:
+  $$m_{\text{post}} = \frac{\frac{m_k}{\tau^2_k} + \frac{\sum_{i: Z_i=k} y_i}{\sigma^2}}{\frac{1}{\tau^2_k} + \frac{n_k}{\sigma^2}}$$
+  $$\tau_{\text{post}} = (\frac{1}{\tau^2_k} + \frac{n_k}{\sigma^2})^{-1}$$
+* **Updated Posterior Variance ($\sigma^2$):** Follows an Inverse-Gamma:
   $$a_{\text{post}} = a_\sigma + \frac{n_k}{2}$$
   $$b_{\text{post}} = b_\sigma + \frac{1}{2} \sum_{i: Z_i=k} (y_i - \mu_k)^2$$
 
@@ -229,8 +231,7 @@ $$PL(\theta; Z) = \prod_{i \in N} \frac{\exp\{\eta_i(z_i)\}}{\sum_{\ell=0}^{K-1}
 ## Real-World Image Results
 
 ### Image Segmentation Application
-* **The test:** In order to evaluate our model in real world data, a near-infrared image was taken from FONTE.
-* **Analysis:** Log-PL, random walks, distributions and visual comparisons.
+* **The test:** In order to evaluate our model in real world data, a near-infrared image by @aslahishahri2021rgb was taken for testing.
 * **Prioris:**
     
   | | |
@@ -258,18 +259,6 @@ $$PL(\theta; Z) = \prod_{i \in N} \frac{\exp\{\eta_i(z_i)\}}{\sum_{\ell=0}^{K-1}
 ![Z initialization](Apreimages/plot_Application_Z.png){#fig-ImageZ0 height="35%"}
 :::
 
-
-### Parameters Convergence
-
-::: {#fig-parameters-panel layout="[[1], [1, 1]]"}
-![Log pseudolikelihood](Apreimages/plot_Application_LogPL.png){#fig-logpl height="35%"}
-
-![MCMC traces](Apreimages/plot_Application_Convergence.png){#fig-convergence height="35%"}
-
-![Posterior distributions](Apreimages/plot_Application_Distributions.png){#fig-distributions height="35%"}
-:::
-
-
 ### Seed Locations
 
 ::: {#fig-realimage-panel layout-ncol=2}
@@ -284,8 +273,41 @@ $$PL(\theta; Z) = \prod_{i \in N} \frac{\exp\{\eta_i(z_i)\}}{\sum_{\ell=0}^{K-1}
 * **Accurate seeds:** Seed plots showed that seeds were well estimated as well as their influence area, but could get confused with background-within cases.
 
 
-### Conclusion and Next Steps
+## Conclusion
+
+### Conclusion
 * **Key Conclusions:** The MWG pipeline makes inference in spacially complex HMRFs viable and robust.
 * **Efficiency:** Estimation via Pseudoposterior balances computational cost and statistical precision.
-* **Future Work:**
-  * IDK
+
+
+### Acknowledgements & Contact
+
+**Wesley Cabral Alves**
+
+*IMECC – University of Campinas (Unicamp)*
+
+* **Email:** `w225825@dac.unicamp.br`
+* **GitHub:** [github.com/wescabral](https://github.com/wescabral)
+
+
+**Questions & Discussion**  
+Thank you for your attention! Feel free to reach out for questions.
+
+## References 
+
+### References 
+::: {#refs} 
+:::
+
+
+### Parameters Convergence
+
+![Log pseudolikelihood](Apreimages/plot_Application_LogPL.png){#fig-logpl height="90%"}
+
+### Parameters Convergence
+
+![MCMC traces](Apreimages/plot_Application_Convergence.png){#fig-convergence height="90%"}
+
+### Parameters Convergence
+
+![Posterior distributions](Apreimages/plot_Application_Distributions.png){#fig-distributions height="90%"}
