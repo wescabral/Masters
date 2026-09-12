@@ -1,5 +1,5 @@
 ---
-title: "Markov Random Fields with Spacial Seeds"
+title: "Markov Random Fields with Spatial Seeds"
 subtitle: "Bayesian Estimation on Hierarchical Hidden Field Model"
 author:
   - "Wesley Cabral Alves"
@@ -76,9 +76,9 @@ format:
 :::
 
 
-### The Spacial Limitation
-* Many real images and textures possess spacial patterns we call **"seeds"** that may attract or repel colors.
-* **Our Proposal:** Incorporate spacial seeds that exert radial influence on the classes.
+### The Spatial Limitation
+* Many real images and textures possess spatial patterns we call **"seeds"** that may attract or repel colors.
+* **Our Proposal:** Incorporate spatial seeds that exert radial influence on the classes.
 * **Objective:** Propose a reparameterized model that describe the inclusion of centroids/seeds, and validate its inference under a hidden model.
 
 ::: {#fig-potts-panel layout-ncol=2}
@@ -95,7 +95,7 @@ format:
 
 ### Potts Reparameterized with Seeds
 * **Enhanced Local Energy Function:** To address the isotropic limitation of the Potts model, we introduce a few elements to handle
-the spacial centrality bias in our local energy funtion:
+the spatial centrality bias in our local energy funtion:
   $$\eta_i(k) = \alpha \sum_{j \in N(i)} \mathds{1}(Z_j = k) + \beta \mathds{1}(k = 0) + \sum_s \frac{\delta_s}{1 + d(i, s)} \mathds{1}(c_s = k)$$
 * **Parameters Meaning:**
   * **$\alpha$ (Uniformity):** Local attraction between neighboring pixels (smoothing).
@@ -121,7 +121,7 @@ the spacial centrality bias in our local energy funtion:
 * **Equilibrium of Forces:** The local seed attraction competes against the global abundance of the background class.
 * **Null Boundary:** Under our model, ignoring neighborhood smoothing, they cancel out when:
   $$\eta_i(0)= \eta_i(k) \implies d_{i,s} = \frac{\delta_s}{\beta}-1$$
-* **Spacial Transition:** That "Null Boundary" radius gives to the model a rough outline of the objects in the image.
+* **Spatial Transition:** That "Null Boundary" radius gives to the model a rough outline of the objects in the image.
   * **Within radius $d_i$:** The seed attraction dominates the local probability.
   * **Beyond radius $d_i$:** The class 0 dominates.
   * **Smoothing effect:** Depending on $\alpha$ value, pixels can be affected more by its neighbors than by the radius rule.
@@ -174,7 +174,7 @@ the spacial centrality bias in our local energy funtion:
   * **Field (Gamma):** $\alpha \sim \text{Gamma}(a_\alpha, b_\alpha)$, $\beta \sim \text{Gamma}(a_\beta, b_\beta)$.
   * **Means (Normal):** $\mu_k \sim N(m_k, \tau^2_k)$ (anchored via K-means).
   * **Variances (Inverse-Gamma):** $\sigma^2 \sim IG(a_\sigma, b_\sigma)$.
-  * **Spacial:** Seed position $s_j \sim \text{Unif}(L)$ discretized on the grid.
+  * **Spatial:** Seed position $s_j \sim \text{Unif}(L)$ discretized on the grid.
 
 # 4. Estimation & Algorithms
 
@@ -206,7 +206,7 @@ $$PL(\theta; Z) = \prod_{i \in N} \frac{\exp\{\eta_i(z_i)\}}{\sum_{\ell=0}^{K-1}
 
 
 ### The Metropolis-within-Gibbs Algorithm
-0. **Initialization**: Noise parameters $(\mu_k, \sigma^2)$ are calculated via K-means over the observed intensity $Y_i$ and they are used among the spacial parameters prioris to generate the initial $Z^{(0)}$ hidden field.
+0. **Initialization**: Noise parameters $(\mu_k, \sigma^2)$ are calculated via K-means over the observed intensity $Y_i$ and they are used among the spatial parameters prioris to generate the initial $Z^{(0)}$ hidden field.
 1. **Step A (Metropolis-Hastings - Field):** Propose $(\alpha, \beta, \delta)$ via a random walk, evaluated over the **Pseudolikelihood (PL)** (but can also be initialized by user-chosen prioris).
 2. **Step B (Metropolis-Hastings - Seeds):** Propose discrete 1-pixel steps for the coordinates $(x,y)$ of the seeds.
 3. **Step C (Gibbs - Latent Field):** Sample $Z_i^{(t)}$ conditioned on its neighbors and the observed intensity $Y_i$.
@@ -269,14 +269,14 @@ $$PL(\theta; Z) = \prod_{i \in N} \frac{\exp\{\eta_i(z_i)\}}{\sum_{\ell=0}^{K-1}
 
 ### Image Segmentation Application Results
 * **Good initialization:** Testing prioris may lead to a good first $Z$.
-* **Fast Convergence:** After step 30001, parameters did not change drastically. The entire pipeline took ~7 minutes for 10000 steps.
+* **Fast Convergence:** After step 3001, parameters did not change drastically. The entire pipeline took ~7 minutes for 10000 steps.
 * **Accurate seeds:** Seed plots showed that seeds were well estimated as well as their influence area, but could get confused with background-within cases.
 
 
 ## Conclusion
 
 ### Conclusion
-* **Key Conclusions:** The MWG pipeline makes inference in spacially complex HMRFs viable and robust.
+* **Key Conclusions:** The MWG pipeline makes inference in spatially complex HMRFs viable and robust.
 * **Efficiency:** Estimation via Pseudoposterior balances computational cost and statistical precision.
 
 

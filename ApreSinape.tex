@@ -193,13 +193,13 @@
 \IfFileExists{xurl.sty}{\usepackage{xurl}}{} % add URL line breaks if available
 \urlstyle{same} % disable monospaced font for URLs
 \hypersetup{
-  pdftitle={Markov Random Fields with Spacial Seeds},
+  pdftitle={Markov Random Fields with Spatial Seeds},
   pdfauthor={Wesley Cabral Alves; Victor Freguglia Souza},
   hidelinks,
   pdfcreator={LaTeX via pandoc}}
 
 
-\title{Markov Random Fields with Spacial Seeds}
+\title{Markov Random Fields with Spatial Seeds}
 \subtitle{Bayesian Estimation on Hierarchical Hidden Field Model}
 \author{Wesley Cabral Alves \and Victor Freguglia Souza}
 \date{2026-09-17}
@@ -335,15 +335,15 @@
 \end{figure}%
 \end{frame}
 
-\begin{frame}{The Spacial Limitation}
-\phantomsection\label{the-spacial-limitation}
+\begin{frame}{The Spatial Limitation}
+\phantomsection\label{the-spatial-limitation}
 \begin{itemize}
 \tightlist
 \item
-  Many real images and textures possess spacial patterns we call
+  Many real images and textures possess spatial patterns we call
   \textbf{``seeds''} that may attract or repel colors.
 \item
-  \textbf{Our Proposal:} Incorporate spacial seeds that exert radial
+  \textbf{Our Proposal:} Incorporate spatial seeds that exert radial
   influence on the classes.
 \item
   \textbf{Objective:} Propose a reparameterized model that describe the
@@ -391,7 +391,7 @@
 \item
   \textbf{Enhanced Local Energy Function:} To address the isotropic
   limitation of the Potts model, we introduce a few elements to handle
-  the spacial centrality bias in our local energy funtion:
+  the spatial centrality bias in our local energy funtion:
   \[\eta_i(k) = \alpha \sum_{j \in N(i)} \mathds{1}(Z_j = k) + \beta \mathds{1}(k = 0) + \sum_s \frac{\delta_s}{1 + d(i, s)} \mathds{1}(c_s = k)\]
 \item
   \textbf{Parameters Meaning:}
@@ -443,7 +443,7 @@
   smoothing, they cancel out when:
   \[\eta_i(0)= \eta_i(k) \implies d_{i,s} = \frac{\delta_s}{\beta}-1\]
 \item
-  \textbf{Spacial Transition:} That ``Null Boundary'' radius gives to
+  \textbf{Spatial Transition:} That ``Null Boundary'' radius gives to
   the model a rough outline of the objects in the image.
 
   \begin{itemize}
@@ -590,7 +590,7 @@ Models}\label{hidden-hierarchical-models}
     \textbf{Variances (Inverse-Gamma):}
     \(\sigma^2 \sim IG(a_\sigma, b_\sigma)\).
   \item
-    \textbf{Spacial:} Seed position \(s_j \sim \text{Unif}(L)\)
+    \textbf{Spatial:} Seed position \(s_j \sim \text{Unif}(L)\)
     discretized on the grid.
   \end{itemize}
 \end{itemize}
@@ -649,7 +649,7 @@ Models}\label{hidden-hierarchical-models}
 \item
   \textbf{Initialization}: Noise parameters \((\mu_k, \sigma^2)\) are
   calculated via K-means over the observed intensity \(Y_i\) and they
-  are used among the spacial parameters prioris to generate the initial
+  are used among the spatial parameters prioris to generate the initial
   \(Z^{(0)}\) hidden field.
 \item
   \textbf{Step A (Metropolis-Hastings - Field):} Propose
@@ -830,7 +830,7 @@ Models}\label{hidden-hierarchical-models}
   \textbf{Good initialization:} Testing prioris may lead to a good first
   \(Z\).
 \item
-  \textbf{Fast Convergence:} After step 30001, parameters did not change
+  \textbf{Fast Convergence:} After step 3001, parameters did not change
   drastically. The entire pipeline took \textasciitilde7 minutes for
   10000 steps.
 \item
@@ -848,7 +848,7 @@ Models}\label{hidden-hierarchical-models}
 \tightlist
 \item
   \textbf{Key Conclusions:} The MWG pipeline makes inference in
-  spacially complex HMRFs viable and robust.
+  spatially complex HMRFs viable and robust.
 \item
   \textbf{Efficiency:} Estimation via Pseudoposterior balances
   computational cost and statistical precision.
