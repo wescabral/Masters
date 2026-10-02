@@ -216,7 +216,7 @@ $$PL(\theta; Z) = \prod_{i \in N} \frac{\exp\{\eta_i(z_i)\}}{\sum_{\ell=0}^{K-1}
 ### Full Conditionals and Conjugacy
 * **Updated Posterior Mean ($\mu_k$):** The full conditional under conjugate priors is a Normal:
   $$m_{\text{post}} = \frac{\frac{m_k}{\tau^2_k} + \frac{\sum_{i: Z_i=k} y_i}{\sigma^2}}{\frac{1}{\tau^2_k} + \frac{n_k}{\sigma^2}}$$
-  $$\tau_{\text{post}} = (\frac{1}{\tau^2_k} + \frac{n_k}{\sigma^2})^{-1}$$
+  $$\tau_{\text{post}} = \left(\frac{1}{\tau^2_k} + \frac{n_k}{\sigma^2}\right)^{-1}$$
 * **Updated Posterior Variance ($\sigma^2$):** Follows an Inverse-Gamma:
   $$a_{\text{post}} = a_\sigma + \frac{n_k}{2}$$
   $$b_{\text{post}} = b_\sigma + \frac{1}{2} \sum_{i: Z_i=k} (y_i - \mu_k)^2$$
